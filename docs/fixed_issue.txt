@@ -1,0 +1,35 @@
+1
+
+2
+● 已删除 pg_cron 扩展和相关定时任务代码。现在 V1__Initial_schema.sql 不再依赖 pg_cron 扩展。
+
+  删除的内容：
+  - CREATE EXTENSION IF NOT EXISTS pg_cron;
+  - cron.schedule() 定时任务
+  - detach_audit_log_partition() 归档函数
+
+  保留的内容：
+  - create_audit_log_partition() 函数（用于手动创建分区）
+
+  如果需要定时自动创建分区，可以在应用层使用 Spring Scheduler 实现，或者使用外部定时任务（如 Kubernetes CronJob）
+
+   所有编译错误已修复：
+
+  修复的文件：
+
+  1. UserRepository.java - 添加 JpaSpecificationExecutor<User> 接口以支持 findAll(Specification) 方法
+  2. KafkaConfig.java - dltTopicSuffix() 改为 dltSuffix() (Spring Kafka API变更)
+  3. RoleDTO.java - 添加 getPermissionCodes()/setPermissionCodes() 方法
+  4. UserController.java - 处理 getCurrentUserId() 返回 Optional<UUID> 的情况
+  5. AuditLogServiceImpl.java - 同上，处理 Optional 返回值
+  6. OAuth2ServiceImpl.java -
+    - 替换错误的 org.springframework.security.core.token.TokenService 为 JwtTokenProvider
+    - 修复所有 tokenService.generateXxx() 调用
+    - 添加 generateAccessToken() 和 generateRefreshToken() 辅助方法
+  7. SessionService.java - 添加缺失的 clearUserPermissionsCache() 和 invalidateAllUserSessions() 方法声明
+  8. UserRoleServiceImpl.java - 移除对不存在方法的调用
+  9. UserServiceImpl.java - 修复对 sessionService.clearUserPermissionsCache() 的调用
+  ⎿  Interrupted · What should Claude do instead?
+
+
+  
