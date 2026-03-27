@@ -1,10 +1,10 @@
 # 系统架构设计文档
 # 用户角色权限管理系统
 
-**文档版本**: 1.0
-**最后更新**: 2026-03-24
+**文档版本**: 1.1
+**最后更新**: 2026-03-27
 **编写人**: 系统架构师
-**依据**: PRD v1.0、FRD v1.1、NFRD v1.0、CONTEXT.md
+**依据**: PRD v1.0、FRD v1.2、NFRD v1.0、CONTEXT.md v1.0
 
 ---
 
@@ -171,21 +171,34 @@ usermanagement-backend/
 ├── src/main/java/com/usermanagement/
 │   ├── domain/              # 领域层
 │   │   ├── user/            # 用户领域
-│   │   ├── department/      # 部门领域
-│   │   ├── role/            # 角色领域
-│   │   ├── permission/      # 权限领域
-│   │   └── audit/           # 审计领域
+│   │   ├── department/      # 部门领域（增强：树形结构）
+│   │   ├── role/            # 角色领域（增强：继承、数据权限）
+│   │   ├── permission/      # 权限领域（增强：模板）
+│   │   ├── audit/           # 审计领域
+│   │   ├── config/          # 配置领域（新增）
+│   │   └── template/        # 模板领域（新增）
 │   ├── application/         # 应用层
 │   │   ├── service/         # 应用服务
+│   │   │   ├── UserService
+│   │   │   ├── DepartmentService（增强）
+│   │   │   ├── RoleService（增强）
+│   │   │   ├── PermissionService（增强）
+│   │   │   ├── AuditService
+│   │   │   ├── ConfigService（新增）
+│   │   │   ├── TemplateService（新增）
+│   │   │   ├── SessionService（新增）
+│   │   │   └── ExportService（新增）
 │   │   ├── dto/             # 数据传输对象
 │   │   └── event/           # 领域事件
 │   ├── infrastructure/      # 基础设施层
-│   │   ├── config/          # 配置
+│   │   ├── config/          # 配置（增强）
 │   │   ├── persistence/     # 持久化
-│   │   ├── security/        # 安全配置
+│   │   ├── security/        # 安全配置（增强）
 │   │   ├── cache/           # 缓存配置
 │   │   ├── messaging/       # 消息配置
-│   │   └── web/             # Web配置
+│   │   ├── web/             # Web配置
+│   │   ├── file/            # 文件存储（新增）
+│   │   └── email/           # 邮件服务（新增）
 │   └── interfaces/          # 接口层
 │       ├── rest/            # REST控制器
 │       └── websocket/       # WebSocket
@@ -242,7 +255,7 @@ UserRepository (仓储接口)
 - 用户角色分配
 - 权限缓存管理
 
-#### RBAC四级模型
+#### RBAC四级模型（增强）
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -252,24 +265,242 @@ UserRepository (仓储接口)
 │   Level 1: 菜单权限 (Menu Permission)                        │
 │   ├─ 控制导航菜单的可见性                                     │
 │   ├─ 示例: user:menu:view                                    │
-│   └─ 存储: permission.type = 'MENU'                          │
+│   ├─ 存储: permission.type = 'MENU'                          │
+│   └─ 前端控制: 动态菜单渲染                                   │
 │                                                             │
 │   Level 2: 操作权限 (Action Permission)                      │
 │   ├─ 控制按钮/功能的可操作性                                  │
 │   ├─ 示例: user:create, user:update, user:delete             │
-│   └─ 存储: permission.type = 'ACTION'                        │
+│   ├─ 存储: permission.type = 'ACTION'                        │
+│   └─ 前端控制: 按钮显示/禁用                                  │
 │                                                             │
 │   Level 3: 字段权限 (Field Permission)                       │
 │   ├─ 控制字段的可见/可编辑                                    │
 │   ├─ 示例: user.field.phone:read, user.field.phone:write     │
-│   └─ 存储: permission.type = 'FIELD'                         │
+│   ├─ 存储: permission.type = 'FIELD'                         │
+│   └─ 前端控制: 表单字段控制                                   │
 │                                                             │
 │   Level 4: 数据权限 (Data Permission)                        │
 │   ├─ 控制可见数据范围                                        │
 │   ├─ 范围: ALL / DEPT / SELF / CUSTOM                        │
-│   └─ 存储: role.data_scope                                   │
+│   ├─ 存储: role.data_scope + role.data_conditions            │
+│   └─ 实现: 数据过滤拦截器                                    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
+```
+
+#### 数据权限范围实现
+
+**四种数据范围类型**：
+
+| 范围类型 | 代码 | 描述 | SQL过滤条件 |
+|----------|------|------|-------------|
+| **全部** | ALL | 查看所有数据 | 无过滤 |
+| **本部门** | DEPT | 查看本部门及子部门数据 | `department_id IN (部门子树ID列表)` |
+| **本人** | SELF | 仅查看自己创建的数据 | `created_by = current_user_id` |
+| **自定义** | CUSTOM | 按条件自定义 | 动态条件生成 |
+
+**数据权限实现**：
+```java
+@Component
+public class DataPermissionInterceptor {
+
+    @Autowired
+    private DepartmentService departmentService;
+
+    public Specification<User> applyDataPermission(UserDetails userDetails, String dataScope) {
+        CustomUserDetails user = (CustomUserDetails) userDetails;
+
+        switch (dataScope) {
+            case "ALL":
+                return null; // 无过滤
+
+            case "DEPT":
+                return createDepartmentFilter(user.getDepartmentId());
+
+            case "SELF":
+                return (root, query, cb) ->
+                    cb.equal(root.get("createdBy"), user.getId());
+
+            case "CUSTOM":
+                return createCustomFilter(user.getRole().getDataConditions());
+
+            default:
+                throw new IllegalArgumentException("未知的数据权限范围: " + dataScope);
+        }
+    }
+
+    private Specification<User> createDepartmentFilter(UUID departmentId) {
+        return (root, query, cb) -> {
+            List<UUID> accessibleDeptIds = departmentService
+                .getSubDepartmentIds(departmentId);
+            accessibleDeptIds.add(departmentId);
+
+            return root.get("departmentId").in(accessibleDeptIds);
+        };
+    }
+}
+```
+
+#### 角色继承管理
+
+**多继承支持**：
+```java
+@Entity
+@Table(name = "role")
+public class Role {
+
+    @Id
+    private UUID id;
+
+    private String name;
+    private String code;
+
+    @Enumerated(EnumType.STRING)
+    private DataScope dataScope;
+
+    @ManyToMany
+    @JoinTable(
+        name = "role_permission",
+        joinColumns = @JoinColumn(name = "role_id"),
+        inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<Permission> permissions = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+        name = "role_inheritance",
+        joinColumns = @JoinColumn(name = "child_role_id"),
+        inverseJoinColumns = @JoinColumn(name = "parent_role_id")
+    )
+    private Set<Role> parentRoles = new HashSet<>();
+
+    // 获取所有权限（包括继承的）
+    public Set<Permission> getAllPermissions() {
+        Set<Permission> allPermissions = new HashSet<>(this.permissions);
+
+        for (Role parent : parentRoles) {
+            allPermissions.addAll(parent.getAllPermissions());
+        }
+
+        return allPermissions;
+    }
+}
+```
+
+**循环继承检测**：
+```java
+@Service
+public class RoleService {
+
+    public void addParentRole(UUID childRoleId, UUID parentRoleId) {
+        // 检查是否形成循环
+        if (isCircularInheritance(childRoleId, parentRoleId)) {
+            throw new BusinessException("不能形成循环继承关系");
+        }
+
+        Role child = roleRepository.findById(childRoleId).orElseThrow();
+        Role parent = roleRepository.findById(parentRoleId).orElseThrow();
+
+        child.getParentRoles().add(parent);
+        roleRepository.save(child);
+
+        // 清除相关用户的权限缓存
+        clearUserPermissionCache(childRoleId);
+    }
+
+    private boolean isCircularInheritance(UUID startRoleId, UUID targetRoleId) {
+        if (startRoleId.equals(targetRoleId)) {
+            return true;
+        }
+
+        Role targetRole = roleRepository.findById(targetRoleId).orElseThrow();
+        Set<Role> visited = new HashSet<>();
+        Queue<Role> queue = new LinkedList<>();
+        queue.add(targetRole);
+
+        while (!queue.isEmpty()) {
+            Role current = queue.poll();
+            if (visited.contains(current)) {
+                continue;
+            }
+            visited.add(current);
+
+            if (current.getId().equals(startRoleId)) {
+                return true;
+            }
+
+            queue.addAll(current.getParentRoles());
+        }
+
+        return false;
+    }
+}
+```
+
+#### 权限模板机制
+
+**权限模板实体**：
+```java
+@Entity
+@Table(name = "permission_template")
+public class PermissionTemplate {
+
+    @Id
+    private UUID id;
+
+    private String name;
+    private String code;
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    private TemplateType type; // DEPARTMENT_MANAGER, END_USER, AUDITOR等
+
+    @ManyToMany
+    @JoinTable(
+        name = "template_permission",
+        joinColumns = @JoinColumn(name = "template_id"),
+        inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<Permission> permissions = new HashSet<>();
+
+    @Enumerated(EnumType.STRING)
+    private DataScope defaultDataScope;
+
+    private String version;
+    private boolean isActive = true;
+}
+```
+
+**应用模板创建角色**：
+```java
+@Service
+public class TemplateService {
+
+    @Transactional
+    public Role createRoleFromTemplate(CreateRoleFromTemplateRequest request) {
+        PermissionTemplate template = templateRepository
+            .findByCodeAndActiveTrue(request.getTemplateCode())
+            .orElseThrow(() -> new TemplateNotFoundException(request.getTemplateCode()));
+
+        Role role = new Role();
+        role.setName(request.getRoleName());
+        role.setCode(generateRoleCode(request.getRoleName()));
+        role.setDataScope(template.getDefaultDataScope());
+        role.setPermissions(new HashSet<>(template.getPermissions()));
+
+        // 可选的权限调整
+        if (request.getAdditionalPermissions() != null) {
+            role.getPermissions().addAll(request.getAdditionalPermissions());
+        }
+
+        if (request.getExcludedPermissions() != null) {
+            role.getPermissions().removeAll(request.getExcludedPermissions());
+        }
+
+        return roleRepository.save(role);
+    }
+}
 ```
 
 #### 权限检查流程
@@ -285,81 +516,342 @@ UserRepository (仓储接口)
                               执行业务逻辑
 ```
 
-### 4.4 部门管理模块
+### 4.4 部门管理模块（增强）
 
 #### 职责
-- 部门CRUD
-- 树形结构管理
-- 层级路径维护
+- 部门CRUD操作
+- 五级树形结构管理（公司→一级部门→二级部门→三级部门→四级部门）
+- 层级路径维护（Materialized Path模式）
 - 部门人员管理
+- 部门排序与拖拽调整
+- 部门树缓存管理
 
 #### 部门树形结构设计
 
+**数据模型**：
 ```sql
--- 使用 Materialized Path 模式
+-- 使用 Materialized Path 模式，支持高效子树查询
 CREATE TABLE department (
     id UUID PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    code VARCHAR(50) UNIQUE NOT NULL,
+    code VARCHAR(50) UNIQUE NOT NULL,  -- 格式: DEPT-001
     parent_id UUID REFERENCES department(id),
     level INT NOT NULL CHECK (level BETWEEN 1 AND 5),
-    path VARCHAR(500) NOT NULL,  -- /1/2/5/10
+    path VARCHAR(500) NOT NULL,        -- 格式: /1/2/5/10
     sort_order INT DEFAULT 0,
     manager_id UUID REFERENCES user(id),
+    description VARCHAR(500),
     status VARCHAR(20) DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,               -- 软删除
+    CONSTRAINT fk_department_parent FOREIGN KEY (parent_id) REFERENCES department(id)
 );
 
--- 查询所有子部门（高效）
-SELECT * FROM department WHERE path LIKE '/1/2/5%';
+-- 索引设计
+CREATE INDEX idx_department_path ON department(path);
+CREATE INDEX idx_department_parent ON department(parent_id);
+CREATE INDEX idx_department_level ON department(level);
+CREATE INDEX idx_department_status ON department(status);
+```
 
--- 查询部门路径
-SELECT * FROM department WHERE id IN (1, 2, 5);
+#### 核心操作实现
+
+**查询子树**：
+```java
+@Service
+public class DepartmentService {
+
+    @Cacheable(value = "departmentSubtree", key = "#rootId")
+    public List<DepartmentDTO> getSubtree(UUID rootId) {
+        String path = departmentRepository.findPathById(rootId);
+        return departmentRepository.findByPathStartingWith(path + "/");
+    }
+
+    public List<UUID> getSubDepartmentIds(UUID departmentId) {
+        String path = departmentRepository.findPathById(departmentId);
+        return departmentRepository.findIdsByPathStartingWith(path + "/");
+    }
+}
+```
+
+**更新部门层级**：
+```java
+@Transactional
+public DepartmentDTO updateDepartmentParent(UUID departmentId, UUID newParentId) {
+    // 1. 检查循环依赖
+    if (isCircularDependency(departmentId, newParentId)) {
+        throw new BusinessException("不能形成循环依赖");
+    }
+
+    // 2. 获取旧路径和新路径
+    String oldPath = departmentRepository.findPathById(departmentId);
+    String newParentPath = departmentRepository.findPathById(newParentId);
+    String newPath = newParentPath + "/" + departmentId;
+
+    // 3. 更新当前部门
+    departmentRepository.updatePath(departmentId, newPath);
+
+    // 4. 更新所有子部门的路径
+    departmentRepository.updateSubtreePaths(oldPath, newPath);
+
+    // 5. 清除缓存
+    cacheManager.evict("departmentTree");
+    cacheManager.evict("departmentSubtree:*");
+
+    return getDepartment(departmentId);
+}
 ```
 
 #### 部门层级规则
-- 最多支持5级：公司(1) → 一级部门(2) → 二级部门(3) → 三级部门(4) → 四级部门(5)
-- 使用 `path` 字段存储完整路径，便于快速查询子树
-- 使用 `level` 字段标识层级，便于权限控制
-- 变更部门层级时，自动更新所有子部门的 path 和 level
+- **最多5级**：公司(1) → 一级部门(2) → 二级部门(3) → 三级部门(4) → 四级部门(5)
+- **路径格式**：`/根部门ID/父部门ID/当前部门ID`
+- **层级计算**：`level = path.split('/').length - 1`
+- **删除约束**：存在子部门或用户时不可删除
+- **缓存策略**：Redis缓存完整部门树，TTL=10分钟
 
-### 4.5 审计日志模块
+#### 数据权限集成
+部门作为数据权限的基础单位：
+- **本部门范围**：可查看用户所属部门及其所有子部门的数据
+- **部门负责人**：可管理本部门用户和配置
+- **部门调整影响**：用户调部门时，数据权限自动更新
+
+### 4.5 系统配置模块（新增）
+
+#### 职责
+- 邮件服务配置（SMTP服务器、端口、认证）
+- 安全策略配置（密码策略、登录策略、会话策略）
+- 性能配置管理（缓存TTL、连接池、接口阈值）
+- 系统参数配置（公司信息、默认设置）
+- 配置版本管理与审计
+
+#### 配置分类与存储
+
+**数据模型**：
+```sql
+-- 系统配置表
+CREATE TABLE system_config (
+    id UUID PRIMARY KEY,
+    config_key VARCHAR(100) UNIQUE NOT NULL,
+    config_value TEXT,
+    config_type VARCHAR(50) NOT NULL,  -- EMAIL/SECURITY/PERFORMANCE/SYSTEM
+    description VARCHAR(500),
+    is_encrypted BOOLEAN DEFAULT FALSE,
+    is_sensitive BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by UUID REFERENCES user(id)
+);
+
+-- 邮件模板表
+CREATE TABLE email_template (
+    id UUID PRIMARY KEY,
+    template_code VARCHAR(50) UNIQUE NOT NULL,  -- USER_ACTIVATION, PASSWORD_RESET
+    template_name VARCHAR(100) NOT NULL,
+    subject VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    variables JSONB,  -- 模板变量定义
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### 配置类型详解
+
+**1. 邮件配置**：
+```yaml
+mail:
+  host: smtp.example.com
+  port: 587
+  username: noreply@example.com
+  password: ENCRYPTED_VALUE
+  protocol: smtp
+  properties:
+    mail.smtp.auth: true
+    mail.smtp.starttls.enable: true
+```
+
+**2. 安全策略配置**：
+```yaml
+security:
+  password:
+    minLength: 8
+    requireUppercase: true
+    requireLowercase: true
+    requireDigits: true
+    requireSpecialChars: true
+    historySize: 5
+    expirationDays: 90
+    minChangeIntervalHours: 24
+  login:
+    maxAttempts: 5
+    lockDurationMinutes: 30
+    sessionTimeoutMinutes: 15
+    maxSessionsPerUser: 5
+    rememberMeDays: 30
+```
+
+**3. 性能配置**：
+```yaml
+performance:
+  cache:
+    userInfoTtl: 180
+    permissionTtl: 300
+    departmentTreeTtl: 600
+  database:
+    maxPoolSize: 50
+    minIdle: 5
+    connectionTimeout: 30000
+  api:
+    responseThreshold: 200
+    loginThreshold: 100
+    slowQueryThreshold: 5000
+```
+
+#### 配置管理实现
+
+**配置服务**：
+```java
+@Service
+public class ConfigService {
+
+    @Cacheable(value = "systemConfig", key = "#configKey")
+    public String getConfigValue(String configKey) {
+        SystemConfig config = configRepository.findByConfigKey(configKey)
+            .orElseThrow(() -> new ConfigNotFoundException(configKey));
+
+        if (config.isEncrypted()) {
+            return decrypt(config.getConfigValue());
+        }
+        return config.getConfigValue();
+    }
+
+    @CacheEvict(value = "systemConfig", key = "#configKey")
+    @Transactional
+    public void updateConfig(String configKey, String value, UUID userId) {
+        SystemConfig config = configRepository.findByConfigKey(configKey)
+            .orElseGet(() -> new SystemConfig(configKey));
+
+        if (config.isEncrypted()) {
+            config.setConfigValue(encrypt(value));
+        } else {
+            config.setConfigValue(value);
+        }
+
+        config.setUpdatedBy(userId);
+        configRepository.save(config);
+
+        // 发布配置变更事件
+        eventPublisher.publishEvent(new ConfigChangedEvent(configKey, value));
+    }
+}
+```
+
+**动态安全策略应用**：
+```java
+@Configuration
+@ConfigurationProperties(prefix = "security.policy")
+@RefreshScope
+public class SecurityPolicyConfig {
+
+    private PasswordPolicy passwordPolicy;
+    private LoginPolicy loginPolicy;
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(passwordPolicy.getStrength());
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(
+            UserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        provider.setHideUserNotFoundExceptions(false);
+        return new ProviderManager(Collections.singletonList(provider));
+    }
+}
+```
+
+### 4.6 审计日志模块（增强）
 
 #### 职责
 - 敏感操作记录
 - 登录登出记录
-- 日志查询与导出
+- 日志查询与导出（支持Excel/PDF/CSV）
 - 日志分析与告警
+- 个人登录历史查看
 
-#### 日志架构
+#### 日志架构增强
 ```
 操作发生 → AOP拦截器 → 日志收集 → Kafka Topic
                                          ↓
                               Log Consumer Service
                                          ↓
-                              PostgreSQL (audit_log表)
-                                         ↓
-                              Elasticsearch (可选，用于搜索)
-                                         ↓
-                              告警检查 (实时)
+                    ┌──────────┬──────────┬──────────┐
+                    ↓          ↓          ↓          ↓
+              PostgreSQL   Elasticsearch  告警检查   导出服务
+              (audit_log)   (搜索优化)    (实时)    (异步生成)
 ```
 
-#### 日志数据结构
+#### 日志导出服务
 ```java
-public class AuditLogEvent {
-    private UUID id;
-    private UUID userId;
-    private String operation;      // CREATE, UPDATE, DELETE, LOGIN, etc.
-    private String resourceType;   // USER, ROLE, PERMISSION, etc.
-    private UUID resourceId;
-    private String oldValue;       // JSON before
-    private String newValue;       // JSON after
-    private String clientIp;
-    private String userAgent;
-    private Boolean success;
-    private String errorMessage;
-    private Instant timestamp;
+@Service
+public class AuditLogExportService {
+
+    @Async
+    public ExportTask exportLogs(ExportRequest request, UUID userId) {
+        // 1. 创建导出任务
+        ExportTask task = createExportTask(request, userId);
+
+        // 2. 异步查询数据
+        List<AuditLog> logs = auditLogRepository.findByCriteria(request);
+
+        // 3. 生成导出文件
+        byte[] fileContent;
+        switch (request.getFormat()) {
+            case EXCEL:
+                fileContent = generateExcel(logs);
+                break;
+            case PDF:
+                fileContent = generatePdf(logs);
+                break;
+            case CSV:
+                fileContent = generateCsv(logs);
+                break;
+            default:
+                throw new UnsupportedFormatException(request.getFormat());
+        }
+
+        // 4. 保存到文件存储
+        String fileUrl = fileStorageService.saveExportFile(task.getId(), fileContent);
+
+        // 5. 更新任务状态
+        task.complete(fileUrl);
+        return taskRepository.save(task);
+    }
+}
+```
+
+#### 个人登录历史
+```java
+@RestController
+@RequestMapping("/api/v1/users/me")
+public class UserProfileController {
+
+    @GetMapping("/login-history")
+    @PreAuthorize("isAuthenticated()")
+    public Page<LoginHistoryDTO> getLoginHistory(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        UUID userId = ((CustomUserDetails) userDetails).getId();
+        return auditLogService.getUserLoginHistory(userId, page, size);
+    }
 }
 ```
 
@@ -785,7 +1277,7 @@ spec:
 
 ## 9. 性能优化策略
 
-### 9.1 高并发登录优化
+### 9.1 高并发登录优化（增强）
 
 #### 目标: 10000 TPS < 100ms
 
@@ -795,33 +1287,187 @@ spec:
 └─────────────────────────────────────────────────────────────┘
 
 1. 连接池优化
-   - HikariCP: max pool size = 20
-   - connection timeout = 5s
-   - idle timeout = 10min
+   - HikariCP: max pool size = 50, min idle = 10
+   - connection timeout = 5s, idle timeout = 10min
+   - validation query: SELECT 1
 
 2. Redis优化
-   - 连接池: Lettuce, pool size = 50
-   - Pipeline批量操作
-   - 读写分离 (集群模式)
+   - Lettuce连接池: pool size = 100
+   - Pipeline批量操作: 登录计数 + 会话存储 + 权限缓存
+   - 集群模式: 读写分离，主从架构
+   - 本地缓存: Caffeine二级缓存热点数据
 
 3. JWT生成优化
-   - 预生成密钥对 (启动时加载)
-   - 避免重复计算
+   - 预生成RSA密钥对 (启动时加载到内存)
+   - 使用线程安全的JWT库
+   - 缓存生成的Token签名
 
 4. 审计日志异步化
-   - Kafka缓冲 (生产)
-   - 线程池异步 (消费)
+   - Kafka缓冲: 高吞吐量，顺序写入
+   - 批量消费: 每批1000条，减少数据库写入次数
+   - 失败重试: 指数退避重试机制
 
 5. 数据库优化
-   - 用户表索引: email (唯一), status
-   - 分区表: 审计日志按月分区
-   - 查询优化: 避免N+1问题
+   - 用户表索引: email (唯一), status, department_id
+   - 分区表: 审计日志按月分区，登录日志按日分区
+   - 查询优化: EntityGraph避免N+1问题
+   - 读写分离: 登录验证走主库，权限查询走从库
 
 6. JVM优化
-   - G1GC: -XX:+UseG1GC
-   - Heap: -Xms2g -Xmx2g
-   - Metaspace: -XX:MetaspaceSize=256m
+   - G1GC: -XX:+UseG1GC -XX:MaxGCPauseMillis=200
+   - Heap: -Xms4g -Xmx4g (根据实际内存调整)
+   - Metaspace: -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=1g
+   - 虚拟线程: -Dspring.threads.virtual.enabled=true
+
+7. 网络优化
+   - HTTP/2: 减少连接建立开销
+   - 连接复用: Keep-Alive
+   - 压缩: Gzip响应压缩
 ```
+
+#### 登录流程性能优化
+
+**优化前流程**：
+```
+1. 验证邮箱密码 (DB查询 + BCrypt比对)
+2. 检查账户状态 (DB查询)
+3. 检查登录失败计数 (Redis查询)
+4. 生成JWT Token (RSA签名)
+5. 存储会话 (Redis写入)
+6. 记录审计日志 (Kafka写入)
+7. 返回响应
+```
+
+**优化后流程**：
+```
+并行执行:
+┌─────────────────────────────────────────────────────────────┐
+│ 主线程:                                                    │
+│ 1. 验证邮箱密码 (DB查询 + BCrypt比对)                       │
+│ 2. 检查账户状态 (DB查询)                                    │
+│ 3. Pipeline操作Redis:                                      │
+│    - 获取登录失败计数                                        │
+│    - 存储会话信息                                           │
+│    - 缓存用户权限                                           │
+│ 4. 生成JWT Token (使用缓存的密钥)                           │
+│ 5. 返回响应                                                │
+│                                                            │
+│ 异步线程:                                                  │
+│ 1. 发送审计日志到Kafka                                      │
+│ 2. 更新最后登录时间 (异步DB更新)                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 具体优化实现
+
+**Redis Pipeline优化**：
+```java
+@Service
+public class LoginService {
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    public LoginResponse login(LoginRequest request) {
+        // 使用Pipeline批量操作Redis
+        List<Object> results = redisTemplate.executePipelined(
+            new RedisCallback<Object>() {
+                @Override
+                public Object doInRedis(RedisConnection connection) {
+                    // 1. 获取登录失败计数
+                    connection.get(("login:failed:" + request.getEmail()).getBytes());
+
+                    // 2. 存储会话信息
+                    String sessionKey = "session:" + userId + ":" + sessionId;
+                    connection.setEx(sessionKey.getBytes(), 900, jwtToken.getBytes());
+
+                    // 3. 缓存用户权限
+                    String permissionKey = "user:permissions:" + userId;
+                    connection.sAdd(permissionKey.getBytes(),
+                        permissions.stream().map(p -> p.getCode().getBytes()).toArray(byte[][]::new));
+                    connection.expire(permissionKey.getBytes(), 300);
+
+                    return null;
+                }
+            }
+        );
+
+        // 处理Pipeline结果
+        Integer failedCount = (Integer) results.get(0);
+        // ... 其他结果处理
+    }
+}
+```
+
+**异步日志处理**：
+```java
+@Component
+public class AuditLogAspect {
+
+    @Autowired
+    private KafkaTemplate<String, AuditLogEvent> kafkaTemplate;
+
+    @Async("auditLogExecutor")
+    @EventListener
+    public void handleLoginEvent(LoginSuccessEvent event) {
+        AuditLogEvent logEvent = AuditLogEvent.builder()
+            .userId(event.getUserId())
+            .operation("LOGIN")
+            .resourceType("USER")
+            .resourceId(event.getUserId())
+            .clientIp(event.getClientIp())
+            .userAgent(event.getUserAgent())
+            .success(true)
+            .timestamp(Instant.now())
+            .build();
+
+        // 发送到Kafka，不阻塞主线程
+        kafkaTemplate.send("audit-log", logEvent);
+    }
+}
+
+@Configuration
+public class AsyncConfig {
+
+    @Bean("auditLogExecutor")
+    public Executor auditLogExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(20);
+        executor.setQueueCapacity(10000);
+        executor.setThreadNamePrefix("audit-log-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        return executor;
+    }
+}
+```
+
+#### 性能监控与调优
+
+**关键监控指标**：
+```yaml
+metrics:
+  login:
+    response_time: histogram
+    tps: meter
+    error_rate: gauge
+  redis:
+    command_latency: histogram
+    memory_usage: gauge
+    hit_rate: gauge
+  database:
+    query_time: histogram
+    connection_pool: gauge
+    slow_queries: counter
+```
+
+**压力测试策略**：
+1. **基准测试**：单用户，测量基础响应时间
+2. **负载测试**：逐步增加并发用户，找到性能拐点
+3. **压力测试**：超过设计容量的压力，测试系统极限
+4. **稳定性测试**：长时间运行，检测内存泄漏
+5. **恢复测试**：故障后恢复能力测试
 
 ### 9.2 缓存优化
 
@@ -900,4 +1546,5 @@ Application ──► Micrometer ──► Prometheus ──► Grafana
 
 | 版本 | 日期 | 修改人 | 修改内容 |
 |------|------|--------|----------|
+| 1.1 | 2026-03-27 | 系统架构师 | 根据FRD v1.2更新：增强部门管理、系统配置、数据权限、性能优化等模块设计 |
 | 1.0 | 2026-03-24 | 系统架构师 | 初始版本，完整系统架构设计 |

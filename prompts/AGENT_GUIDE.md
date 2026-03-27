@@ -1,6 +1,6 @@
 # Agent 协作指南
 
-> 统一的 Agent 协作指南 - 合并自 INDEX.md 和 AGENT_COLLABORATION.md
+> 统一的 Agent 协作指南
 
 ## 目录
 

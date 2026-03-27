@@ -56,8 +56,8 @@ claude agent gsd-executor          # 执行计划任务
 
 ## 详细文档链接
 
-- [Agent 协作详解](docs/prompts/AGENT_COLLABORATION.md) - 协作时序、触发机制、交接规范
-- [交付物清单](docs/DELIVERABLES.md) - 各角色的输出物
-- [质量门禁](docs/QUALITY_GATES.md) - 质量检查标准
+- [Agent协作详解](prompts/prompts/AGENT_GUIDE.md) - 协作时序、触发机制、交接规范
+- [交付物清单](prompts/DELIVERABLES.md) - 各角色的输出物
+- [质量门禁](prompts/QUALITY_GATES.md) - 质量检查标准
 - [开发工作流程](../../rules/development-workflow.md) - 开发流程规范
-- [测试策略](docs/TESTING_STRATEGY.md) - 测试设计与执行
+- [测试策略](prompts/TESTING_STRATEGY.md) - 测试设计与执行
