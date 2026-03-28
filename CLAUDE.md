@@ -51,6 +51,7 @@ usermanagement/
 │       └── db/migration/ # Flyway 迁移脚本
 ├── frontend/         # Next.js 前端
 ├── docs/            # 文档
+├── prompts/            # 提示词
 └── scripts/         # 脚本
 ```
 
@@ -61,20 +62,27 @@ usermanagement/
 - CLAUDE.md - 项目级 Claude 配置
 
 ### Agent 协作
-- **docs/AGENT_GUIDE.md** - Agent 协作指南（统一文档）
+- **prompts/AGENT_GUIDE.md** - Agent 协作指南（统一文档）
 - ~/.claude/agents/ - 全局 Agent 提示词
 - ~/.claude/rules/ - 全局开发规则
-
+### 决策与技术约束文档
+- prompts/requirements/CONTEXT.md - 用户决策与技术约束
+### 非功能需求文档
+- prompts/requirements/NON_FUNCTIONAL_REQUIREMENTS.md - 非功能需求
+### USER_STORIES文档
+- prompts/requirements/USER_STORIES.md - 用户故事
 ### 需求文档
-- docs/requirements/FUNCTIONAL_REQUIREMENTS.md - 功能需求
-- docs/requirements/NON_FUNCTIONAL_REQUIREMENTS.md - 非功能需求
-- docs/requirements/USER_STORIES.md - 用户故事
-- docs/requirements/CONTEXT.md - 用户决策与技术约束
+- prompts/requirements/USER_MANAGEMENT.md - 用户管理
+- prompts/requirements/ROLE_PERMISSION_MANAGEMENT.md - 角色权限管理
+- prompts/requirements/AUTHENTICATION_AUTHORIZATION.md - 认证授权
+- prompts/requirements/AUDIT_LOG.md - 审计日志
+- prompts/requirements/SYSTEM_CONFIGURATION.md - 系统配置
+- prompts/requirements/DEPARTMENT_MANAGEMENT.md - 部门管理
 
 ### 架构文档
-- docs/architecture/SYSTEM_ARCHITECTURE.md - 系统架构
-- docs/architecture/adr/ - 架构决策记录
-- docs/architecture/TECHNICAL_CONSTRAINTS.md - 技术约束
+- prompts/architecture/SYSTEM_ARCHITECTURE.md - 系统架构
+- prompts/architecture/adr/ - 架构决策记录
+- prompts/architecture/TECHNICAL_CONSTRAINTS.md - 技术约束
 
 ### 实施计划
 - PLAN.md - 可执行项目计划
