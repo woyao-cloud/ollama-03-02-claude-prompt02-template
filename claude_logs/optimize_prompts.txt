@@ -1,2 +1,5 @@
 1. 业务分析员计划根据产品经理的输出文件开始工作,其中功能性需求按功能模块：用户管理、角色权限管理、认证授权、审计日志、系统配置、部门管理分为单独文件以便后续制定项目计划及设计
 开发时能独立并行进行.先进行规划，批准前不实际执行
+
+ API Error: 400 {"error":{"message":"This model's maximum context length is 102400 tokens. However, you requested 102479 tokens (70479 in the messages, 32000 in the
+     completion). Please reduce the length of the messages or completion.","type":"invalid_request_error","param":null,"code":"invalid_request_error"}}
