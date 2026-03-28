@@ -253,7 +253,7 @@
 
 | ID | 需求 | 要求 | 优先级 |
 |----|------|------|--------|
-| NFR-DEP-201 | 环境分离 | dev/test/prod | Must |
+| NFR-DEP-201 | 环境分离 | dev/team/sit/prod | Must |
 | NFR-DEP-202 | 配置加密 | 敏感配置加密 | Must |
 | NFR-DEP-203 | 配置中心 | 支持Nacos/Consul | Could |
 
