@@ -9,9 +9,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -181,6 +185,160 @@ class UserRepositoryTest {
             // Then
             assertThat(users).hasSize(1);
             assertThat(users.get(0).getDepartmentId()).isEqualTo(testUser.getDepartmentId());
+        }
+    }
+
+    @Nested
+    @DisplayName("分页查询测试")
+    class PaginationTests {
+
+        @Test
+        @DisplayName("应该分页查询所有用户")
+        void shouldFindAllUsersPaginated() {
+            // Given
+            userRepository.save(testUser);
+
+            User user2 = new User();
+            user2.setEmail("user2@example.com");
+            user2.setPasswordHash("hashed");
+            user2.setFirstName("User");
+            user2.setLastName("Two");
+            user2.setStatus(UserStatus.ACTIVE);
+            userRepository.save(user2);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            Pageable pageable = PageRequest.of(0, 10);
+
+            // When
+            Page<User> page = userRepository.findAll(pageable);
+
+            // Then
+            assertThat(page.getTotalElements()).isEqualTo(2);
+            assertThat(page.getContent()).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("应该按状态分页查询用户")
+        void shouldFindUsersByStatusPaginated() {
+            // Given
+            userRepository.save(testUser);
+
+            User inactiveUser = new User();
+            inactiveUser.setEmail("inactive@example.com");
+            inactiveUser.setPasswordHash("hashed");
+            inactiveUser.setFirstName("Inactive");
+            inactiveUser.setLastName("User");
+            inactiveUser.setStatus(UserStatus.INACTIVE);
+            userRepository.save(inactiveUser);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            Pageable pageable = PageRequest.of(0, 10);
+
+            // When
+            Page<User> page = userRepository.findByStatus(UserStatus.ACTIVE, pageable);
+
+            // Then
+            assertThat(page.getTotalElements()).isEqualTo(1);
+            assertThat(page.getContent().get(0).getStatus()).isEqualTo(UserStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("应该按部门分页查询用户")
+        void shouldFindUsersByDepartmentPaginated() {
+            // Given
+            UUID departmentId = UUID.randomUUID();
+            testUser.setDepartmentId(departmentId);
+            userRepository.save(testUser);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            Pageable pageable = PageRequest.of(0, 10);
+
+            // When
+            Page<User> page = userRepository.findByDepartmentId(departmentId, pageable);
+
+            // Then
+            assertThat(page.getTotalElements()).isEqualTo(1);
+            assertThat(page.getContent().get(0).getDepartmentId()).isEqualTo(departmentId);
+        }
+
+        @Test
+        @DisplayName("应该按部门和状态分页查询用户")
+        void shouldFindUsersByDepartmentAndStatusPaginated() {
+            // Given
+            UUID departmentId = UUID.randomUUID();
+            testUser.setDepartmentId(departmentId);
+            testUser.setStatus(UserStatus.ACTIVE);
+            userRepository.save(testUser);
+
+            User otherStatusUser = new User();
+            otherStatusUser.setEmail("other@example.com");
+            otherStatusUser.setPasswordHash("hashed");
+            otherStatusUser.setFirstName("Other");
+            otherStatusUser.setLastName("User");
+            otherStatusUser.setDepartmentId(departmentId);
+            otherStatusUser.setStatus(UserStatus.INACTIVE);
+            userRepository.save(otherStatusUser);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            Pageable pageable = PageRequest.of(0, 10);
+
+            // When
+            Page<User> page = userRepository.findByDepartmentIdAndStatus(departmentId, UserStatus.ACTIVE, pageable);
+
+            // Then
+            assertThat(page.getTotalElements()).isEqualTo(1);
+            assertThat(page.getContent().get(0).getStatus()).isEqualTo(UserStatus.ACTIVE);
+        }
+    }
+
+    @Nested
+    @DisplayName("软删除测试")
+    class SoftDeleteTests {
+
+        @Test
+        @DisplayName("应该软删除用户")
+        void shouldSoftDeleteUser() {
+            // Given
+            User saved = userRepository.save(testUser);
+            entityManager.flush();
+            entityManager.clear();
+
+            // When
+            saved.setDeletedAt(java.time.Instant.now());
+            userRepository.delete(saved);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Then - 使用 @Where 注解，软删除的用户不会被查询到
+            Optional<User> found = userRepository.findById(saved.getId());
+            assertThat(found).isEmpty();
+        }
+
+        @Test
+        @DisplayName("软删除后邮箱检查应返回 false")
+        void shouldReturnFalseForDeletedUserEmail() {
+            // Given
+            testUser.setEmail("todelete@example.com");
+            User saved = userRepository.save(testUser);
+            entityManager.flush();
+            entityManager.clear();
+
+            // When
+            saved.setDeletedAt(java.time.Instant.now());
+            userRepository.delete(saved);
+            entityManager.flush();
+            entityManager.clear();
+
+            // Then
+            assertThat(userRepository.existsByEmail("todelete@example.com")).isFalse();
         }
     }
 }
