@@ -18,6 +18,7 @@ public class AppProperties {
     private final Jwt jwt = new Jwt();
     private final Password password = new Password();
     private final Account account = new Account();
+    private String frontendUrl = "http://localhost:3000";
 
     @Data
     public static class Jwt {

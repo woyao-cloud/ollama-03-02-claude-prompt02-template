@@ -16,6 +16,19 @@ spring:
     deserialization:
       fail-on-unknown-properties: false
 
+  # 邮件配置
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 # 服务器配置
 server:
   port: ${SERVER_PORT:8080}
@@ -58,6 +71,8 @@ info:
 # 应用配置
 # ============================================================================
 app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
   # JWT 配置
   jwt:
     secret: ${JWT_SECRET:your-secret-key-change-in-production}

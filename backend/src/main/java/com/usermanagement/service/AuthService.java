@@ -8,10 +8,9 @@ import com.usermanagement.security.JwtTokenProvider;
 import com.usermanagement.security.PasswordValidator;
 import com.usermanagement.web.dto.AuthResponse;
 import com.usermanagement.web.dto.LoginRequest;
-import com.usermanagement.web.dto.RegisterRequest;
+import com.usermanagement.web.dto.RefreshTokenRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -27,7 +26,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 认证服务 - 处理用户登录、注册、登出等认证相关操作
+ * 认证服务 - 处理用户登录、刷新 Token 等认证相关操作
  *
  * @author UserManagement Team
  * @since 1.0.0
@@ -39,7 +38,6 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final AccountLockoutService accountLockoutService;
     private final PasswordValidator passwordValidator;
@@ -47,14 +45,12 @@ public class AuthService {
     public AuthService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
-        AuthenticationManager authenticationManager,
         JwtTokenProvider jwtTokenProvider,
         AccountLockoutService accountLockoutService,
         PasswordValidator passwordValidator
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
         this.accountLockoutService = accountLockoutService;
         this.passwordValidator = passwordValidator;
@@ -179,65 +175,6 @@ public class AuthService {
             user.getFirstName(),
             user.getLastName(),
             roles
-        );
-    }
-
-    /**
-     * 用户注册
-     *
-     * @param request 注册请求
-     * @return 认证响应
-     */
-    @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        // 检查邮箱是否已存在
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("邮箱已被注册");
-        }
-
-        // 验证密码强度
-        passwordValidator.validate(request.getPassword());
-
-        // 创建用户
-        User user = User.builder()
-            .email(request.getEmail())
-            .passwordHash(passwordEncoder.encode(request.getPassword()))
-            .firstName(request.getFirstName())
-            .lastName(request.getLastName())
-            .status(UserStatus.PENDING)
-            .emailVerified(false)
-            .failedLoginAttempts(0)
-            .build();
-
-        user = userRepository.save(user);
-        logger.info("用户注册成功：{}", user.getEmail());
-
-        // 创建认证
-        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_USER"));
-        CustomUserDetails userDetails = new CustomUserDetails(
-            user.getId().toString(),
-            user.getEmail(),
-            user.getDepartmentId(),
-            authorities
-        );
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-            userDetails,
-            null,
-            authorities
-        );
-
-        // 生成 Token
-        String accessToken = jwtTokenProvider.generateAccessToken(authentication);
-        String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
-
-        return AuthResponse.success(
-            accessToken,
-            refreshToken,
-            user.getId().toString(),
-            user.getEmail(),
-            user.getFirstName(),
-            user.getLastName(),
-            List.of("ROLE_USER")
         );
     }
 

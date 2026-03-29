@@ -1,6 +1,7 @@
 package com.usermanagement.web.controller;
 
 import com.usermanagement.service.AuthService;
+import com.usermanagement.service.RegistrationService;
 import com.usermanagement.web.dto.AuthResponse;
 import com.usermanagement.web.dto.LoginRequest;
 import com.usermanagement.web.dto.RefreshTokenRequest;
@@ -11,9 +12,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -23,15 +26,17 @@ import org.springframework.web.bind.annotation.RestController;
  * @since 1.0.0
  */
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthService authService;
+    private final RegistrationService registrationService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, RegistrationService registrationService) {
         this.authService = authService;
+        this.registrationService = registrationService;
     }
 
     /**
@@ -60,8 +65,23 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         logger.info("用户注册：{}", request.getEmail());
-        AuthResponse response = authService.register(request);
+        AuthResponse response = registrationService.register(request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 邮箱验证
+     *
+     * GET /api/auth/verify?token=xxx
+     *
+     * @param token 验证 Token
+     * @return 成功响应
+     */
+    @GetMapping("/verify")
+    public ResponseEntity<String> verifyEmail(@RequestParam String token) {
+        logger.info("邮箱验证：token={}", token);
+        registrationService.verifyEmail(token);
+        return ResponseEntity.ok("邮箱验证成功，您的账户已激活");
     }
 
     /**
@@ -87,9 +107,9 @@ public class AuthController {
      * @return 空响应
      */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal org.springframework.security.core.userdetails.UserDetails userDetails) {
         if (userDetails != null) {
-            logger.info("用户登出：{}", userDetails.getEmail());
+            logger.info("用户登出：{}", userDetails.getUsername());
         }
         // 清除安全上下文
         SecurityContextHolder.clearContext();
