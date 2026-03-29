@@ -25,6 +25,11 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
     List<RolePermission> findByRoleId(UUID roleId);
 
     /**
+     * 根据多个角色 ID 查找权限关联
+     */
+    List<RolePermission> findAllByRoleIdIn(List<UUID> roleIds);
+
+    /**
      * 根据权限 ID 查找角色关联
      */
     List<RolePermission> findByPermissionId(UUID permissionId);

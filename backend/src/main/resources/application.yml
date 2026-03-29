@@ -53,3 +53,28 @@ info:
     name: 用户管理系统
     description: 全栈用户管理系统 - Spring Boot 后端
     version: 1.0.0-SNAPSHOT
+
+# ============================================================================
+# 应用配置
+# ============================================================================
+app:
+  # JWT 配置
+  jwt:
+    secret: ${JWT_SECRET:your-secret-key-change-in-production}
+    expiration: ${JWT_EXPIRATION:86400000}  # 24 小时
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 天
+    issuer: ${JWT_ISSUER:usermanagement-system}
+
+  # 密码策略配置
+  password:
+    min-length: 8
+    require-uppercase: true
+    require-lowercase: true
+    require-digit: true
+    require-special: false
+
+  # 账户锁定配置
+  account:
+    lockout:
+      threshold: 5        # 5 次失败后锁定
+      duration: 900       # 锁定 15 分钟 (秒)

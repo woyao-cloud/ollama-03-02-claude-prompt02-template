@@ -1,0 +1,114 @@
+  Spring Boot 项目初始化 (B1.1-B1.2)
+
+● 我将初始化 Spring Boot 项目骨架和配置文件。
+
+
+● Spring Boot 项目初始化完成。
+
+  完成的工作 (B1.1-B1.2)
+
+  项目骨架:
+  - pom.xml - Maven 配置 (Spring Boot 3.5 + JDK 21)
+  - UserManagementApplication.java - 应用入口
+  - 包结构：config, domain, repository, service, web, security
+
+  多环境配置:
+  - application.yml - 主配置
+  - application-dev.yml - 开发环境 (H2 内存数据库)
+  - application-test.yml - 测试环境 (Testcontainers PostgreSQL)
+  - application-prod.yml - 生产环境 (PostgreSQL)
+
+  配置类:
+  - AppProperties.java - JWT/密码/账户锁定配置
+  - JacksonConfig.java - JSON 序列化配置
+  - CorsConfig.java - 跨域配置
+  - GlobalExceptionHandler.java - 全局异常处理
+
+  基础域对象:
+  - BaseEntity.java - 实体基类 (审计字段)
+  - UserStatus.java - 用户状态枚举
+  - DataScope.java - 数据权限范围枚举
+
+  配套文档:
+  - backend/README.md - 快速开始指南
+  - backend/.gitignore - Git 忽略规则
+
+  使用的 Skills/Agents: 无（手工创建）
+
+  下一步可以继续：
+  - B2: 核心实体开发 (User, Department, Role, Permission)
+  - 或启动前端 Next.js 项目初始化 (F1.1-F1.2)
+ 
+ 我将启动 TDD 流程进行核心实体开发。
+
+● Skill(tdd-guide)
+  ⎿  Initializing…
+  ⎿  Error: Unknown skill: tdd-guide
+
+● tdd-guide(TDD 核心实体开发)
+  ⎿  Done (90 tool uses · 74.8k tokens · 14m 3s)
+  (ctrl+o to expand)
+
+● TDD 核心实体开发完成。让我验证一下创建的文件：
+
+  Searched for 3 patterns (ctrl+o to expand)
+
+● B2 核心实体开发完成
+
+  使用的技能/Agents/Plugins
+
+  SKILLs:
+  - TDD (测试驱动开发) - RED-GREEN-REFACTOR 循环
+
+  Agents:
+  - tdd-guide - TDD 专家 Agent 执行
+
+  Plugins:
+  - Lombok - 简化实体代码
+  - Spring Data JPA - Repository 支持
+  - Hibernate - 软删除 (@SQLDelete, @Where)
+
+  ---
+  交付物清单
+
+  实体类 (13 个):
+
+  ┌─────────────────────┬───────────────────────────────────────────────────────────────────────────────────────┐
+  │        文件         │                                         说明                                          │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ BaseEntity.java     │ 实体基类 (UUID 主键，审计字段)                                                        │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ Department.java     │ 部门实体 (Materialized Path)                                                          │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ User.java           │ 用户实体                                                                              │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ Role.java           │ 角色实体                                                                              │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ Permission.java     │ 权限实体                                                                              │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ UserRole.java       │ 用户 - 角色关联                                                                       │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ RolePermission.java │ 角色 - 权限关联                                                                       │
+  ├─────────────────────┼───────────────────────────────────────────────────────────────────────────────────────┤
+  │ 枚举 6 个           │ UserStatus, DepartmentStatus, RoleStatus, PermissionStatus, PermissionType, DataScope │
+  └─────────────────────┴───────────────────────────────────────────────────────────────────────────────────────┘
+
+  Repository (6 个):
+  - DepartmentRepository, UserRepository, RoleRepository, PermissionRepository, UserRoleRepository,
+  RolePermissionRepository
+
+  测试 (11 个):
+  - 单元测试 6 个 (每个实体一个)
+  - 集成测试 5 个 (Repository 层)
+
+  ---
+  关键特性
+
+  - ✅ UUID 主键
+  - ✅ 软删除支持
+  - ✅ 审计字段自动填充
+  - ✅ Materialized Path 部门树
+  - ✅ 复合主键关联表
+  - ✅ 枚举类型映射
+
+  下一步: B3 认证授权模块 (JWT TokenProvider, SecurityConfig, AuthController)

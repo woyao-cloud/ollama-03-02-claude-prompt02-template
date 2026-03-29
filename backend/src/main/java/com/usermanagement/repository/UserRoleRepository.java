@@ -25,6 +25,13 @@ public interface UserRoleRepository extends JpaRepository<UserRole, String> {
     List<UserRole> findByUserId(UUID userId);
 
     /**
+     * 根据用户 ID 查找角色关联 (别名方法)
+     */
+    default List<UserRole> findAllByUserId(UUID userId) {
+        return findByUserId(userId);
+    }
+
+    /**
      * 根据角色 ID 查找用户关联
      */
     List<UserRole> findByRoleId(UUID roleId);
