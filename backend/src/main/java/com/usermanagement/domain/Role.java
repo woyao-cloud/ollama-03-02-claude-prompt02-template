@@ -5,7 +5,9 @@ import lombok.*;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.Where;
 
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 角色实体 - RBAC 权限模型
@@ -57,6 +59,18 @@ public class Role extends BaseEntity {
     @Column(name = "status", length = 20, nullable = false)
     @Builder.Default
     private RoleStatus status = RoleStatus.ACTIVE;
+
+    /**
+     * 拥有权限 (多对多关系)
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "role_permission",
+        joinColumns = @JoinColumn(name = "role_id"),
+        inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    @Builder.Default
+    private Set<Permission> permissions = new HashSet<>();
 
     /**
      * 判断角色是否激活
