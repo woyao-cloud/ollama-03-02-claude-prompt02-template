@@ -19,10 +19,16 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
  * JWT Token Provider - 负责生成、验证和解析 JWT Token
+ *
+ * 性能优化:
+ * - 使用 HS512 算法 (更快的签名验证)
+ * - 预计算 SecretKey，避免每次生成
+ * - 精简 Claims 内容，减少 Token 大小
  *
  * @author UserManagement Team
  * @since 1.0.0
@@ -33,7 +39,6 @@ public class JwtTokenProvider {
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
 
     private static final String AUTHORITIES_KEY = "auth";
-    private static final String USER_ID_KEY = "userId";
     private static final String EMAIL_KEY = "email";
 
     private final SecretKey secretKey;
@@ -41,13 +46,19 @@ public class JwtTokenProvider {
     private final long refreshExpiration;
     private final String issuer;
 
+    // 预计算的日期对象，减少对象创建
+    private static final ThreadLocal<Date> CURRENT_DATE = ThreadLocal.withInitial(Date::new);
+
     public JwtTokenProvider(AppProperties appProperties) {
+        // 使用 HS512 算法 (256-bit 密钥)
         this.secretKey = Keys.hmacShaKeyFor(
             appProperties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8)
         );
         this.expiration = appProperties.getJwt().getExpiration();
         this.refreshExpiration = appProperties.getJwt().getRefreshExpiration();
         this.issuer = appProperties.getJwt().getIssuer();
+        logger.info("JWT Provider 已初始化，算法=HS512, Access Token 有效期={}ms, Refresh Token 有效期={}ms",
+            expiration, refreshExpiration);
     }
 
     /**
@@ -78,24 +89,34 @@ public class JwtTokenProvider {
      * @return JWT Token
      */
     private String generateToken(Authentication authentication, long expirationTime) {
-        String userId = authentication.getName();
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        String authorities = authentication.getAuthorities().stream()
-            .map(GrantedAuthority::getAuthority)
-            .collect(Collectors.joining(","));
-
-        Date now = new Date();
+        // 优化：复用 Date 对象，减少内存分配
+        Date now = CURRENT_DATE.get();
         Date expiryDate = new Date(now.getTime() + expirationTime);
 
+        // 优化：精简 Claims，只保留必要字段
+        // userId 作为 subject, email 和 authorities 作为 claims
+        String userId = authentication.getName();
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+
+        // 优化：使用 StringBuilder 而非 Stream 收集权限
+        StringBuilder authoritiesBuilder = new StringBuilder();
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            if (authoritiesBuilder.length() > 0) {
+                authoritiesBuilder.append(",");
+            }
+            authoritiesBuilder.append(authority.getAuthority());
+        }
+        String authorities = authoritiesBuilder.toString();
+
+        // 使用 HS512 算法签名
         return Jwts.builder()
             .subject(userId)
-            .claim(USER_ID_KEY, userId)
             .claim(EMAIL_KEY, userDetails.getEmail())
             .claim(AUTHORITIES_KEY, authorities)
             .issuer(issuer)
             .issuedAt(now)
             .expiration(expiryDate)
-            .signWith(secretKey)
+            .signWith(secretKey, Jwts.SIG.HS512)
             .compact();
     }
 
@@ -133,12 +154,15 @@ public class JwtTokenProvider {
         if (authorities == null || authorities.isEmpty()) {
             return List.of();
         }
-        return List.of(authorities.split(","))
-            .stream()
-            .map(String::trim)
-            .filter(s -> !s.isEmpty())
-            .map(SimpleGrantedAuthority::new)
-            .collect(Collectors.toList());
+        // 优化：避免 Stream，使用传统循环
+        List<GrantedAuthority> result = new java.util.ArrayList<>();
+        for (String auth : authorities.split(",")) {
+            String trimmed = auth.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(new SimpleGrantedAuthority(trimmed));
+            }
+        }
+        return result;
     }
 
     /**

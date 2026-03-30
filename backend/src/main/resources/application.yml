@@ -116,3 +116,15 @@ cache:
     tree:
       expiration: 1800          # 部门树缓存过期时间 (秒),默认 30 分钟
       null-expiration: 300      # 空值缓存过期时间 (秒),默认 5 分钟 (缓存穿透保护)
+
+# ============================================================================
+# 配置管理配置
+# ============================================================================
+config:
+  encryption:
+    key: ${CONFIG_ENCRYPTION_KEY:defaultEncryptionKey123}
+    enabled: ${CONFIG_ENCRYPTION_ENABLED:false}
+  cache:
+    local-expiration: 300       # 本地缓存过期时间 (秒)
+    redis-expiration: 600       # Redis 缓存过期时间 (秒)
+    max-size: 500               # 本地缓存最大大小
