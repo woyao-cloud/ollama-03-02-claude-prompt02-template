@@ -3,6 +3,8 @@ package com.usermanagement.repository;
 import com.usermanagement.domain.Role;
 import com.usermanagement.domain.RoleStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -42,4 +44,22 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
      * 检查名称是否存在
      */
     boolean existsByName(String name);
+
+    /**
+     * 获取所有角色（带权限，避免 N+1）
+     */
+    @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.permissions p WHERE r.deletedAt IS NULL")
+    List<Role> findAllWithPermissions();
+
+    /**
+     * 根据 ID 获取角色（带权限，避免 N+1）
+     */
+    @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.permissions p WHERE r.id = :id AND r.deletedAt IS NULL")
+    java.util.Optional<Role> findByIdWithPermissions(@Param("id") UUID id);
+
+    /**
+     * 根据状态获取角色（带权限，避免 N+1）
+     */
+    @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.permissions p WHERE r.status = :status AND r.deletedAt IS NULL")
+    List<Role> findByStatusWithPermissions(@Param("status") RoleStatus status);
 }

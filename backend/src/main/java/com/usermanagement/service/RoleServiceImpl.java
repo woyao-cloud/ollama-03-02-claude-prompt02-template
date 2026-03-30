@@ -92,12 +92,15 @@ public class RoleServiceImpl implements RoleService {
     /**
      * 获取所有角色列表
      *
+     * 性能优化：使用 JOIN FETCH 避免 N+1 查询
+     *
      * @return 角色列表
      */
     @Override
     @Transactional(readOnly = true)
     public List<RoleDTO> getAllRoles() {
-        List<Role> roles = roleRepository.findAll();
+        // 使用 JOIN FETCH 一次性加载角色和权限，避免 N+1 查询
+        List<Role> roles = roleRepository.findAllWithPermissions();
         return roles.stream()
             .map(roleMapper::toDto)
             .collect(Collectors.toList());
@@ -244,23 +247,19 @@ public class RoleServiceImpl implements RoleService {
     /**
      * 获取角色带权限的详情
      *
+     * 性能优化：使用 JOIN FETCH 避免 N+1 查询
+     *
      * @param roleId 角色 ID
      * @return 带权限的角色 DTO
      */
     @Override
     @Transactional(readOnly = true)
     public RoleWithPermissionsDTO getRoleWithPermissions(UUID roleId) {
-        Role role = roleRepository.findById(roleId)
+        // 使用 JOIN FETCH 一次性加载角色和权限，避免 N+1 查询
+        Role role = roleRepository.findByIdWithPermissions(roleId)
             .orElseThrow(() -> new IllegalArgumentException("角色不存在"));
 
-        List<RolePermission> rolePermissions = rolePermissionRepository.findByRoleId(roleId);
-        List<Permission> permissions = new ArrayList<>();
-        for (RolePermission rp : rolePermissions) {
-            permissionRepository.findById(rp.getPermissionId())
-                .ifPresent(permissions::add);
-        }
-
-        return buildRoleWithPermissionsDto(role, permissions);
+        return buildRoleWithPermissionsDto(role, role.getPermissions());
     }
 
     /**

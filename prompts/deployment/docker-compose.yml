@@ -10,7 +10,7 @@ services:
   # PostgreSQL 数据库
   postgres:
     image: postgres:15-alpine
-    container_name: ums-postgres-dev
+    container_name: users-postgres-dev
     environment:
       POSTGRES_DB: user_management
       POSTGRES_USER: devuser
@@ -29,7 +29,7 @@ services:
       retries: 10
       start_period: 10s
     networks:
-      - ums-dev-network
+      - users-dev-network
     command: >
       postgres
       -c max_connections=200
@@ -43,7 +43,7 @@ services:
   # Redis 缓存
   redis:
     image: redis:7-alpine
-    container_name: ums-redis-dev
+    container_name: users-redis-dev
     ports:
       - "6379:6379"
     volumes:
@@ -55,24 +55,24 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - ums-dev-network
+      - users-dev-network
 
   # Zookeeper (Kafka 依赖)
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: ums-zookeeper-dev
+    container_name: users-zookeeper-dev
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
     networks:
-      - ums-dev-network
+      - users-dev-network
 
   # Kafka 消息队列
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: ums-kafka-dev
+    container_name: users-kafka-dev
     depends_on:
       - zookeeper
     ports:
@@ -89,7 +89,7 @@ services:
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_DEFAULT_REPLICATION_FACTOR: 1
     networks:
-      - ums-dev-network
+      - users-dev-network
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "bootstrap-server", "localhost:9092"]
       interval: 10s
@@ -100,7 +100,7 @@ services:
   # Kafka UI
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: ums-kafka-ui-dev
+    container_name: users-kafka-ui-dev
     depends_on:
       kafka:
         condition: service_healthy
@@ -111,12 +111,12 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
     networks:
-      - ums-dev-network
+      - users-dev-network
 
   # 数据库测试数据初始化服务
   db-seed:
     image: postgres:15-alpine
-    container_name: ums-db-seed-dev
+    container_name: users-db-seed-dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -159,7 +159,7 @@ services:
         echo '============================================'
       "
     networks:
-      - ums-dev-network
+      - users-dev-network
     profiles:
       - seed
     restart: "no"
@@ -170,7 +170,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
       target: development
-    container_name: ums-backend-dev
+    container_name: users-backend-dev
     environment:
       # 数据库配置
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_management
@@ -208,7 +208,7 @@ services:
       kafka:
         condition: service_healthy
     networks:
-      - ums-dev-network
+      - users-dev-network
     command: >
       sh -c "
         echo '等待数据库迁移完成...' &&
@@ -222,7 +222,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
-    container_name: ums-frontend-dev
+    container_name: users-frontend-dev
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8080/api/v1
       NEXT_PUBLIC_WS_URL: ws://localhost:8080/ws
@@ -238,7 +238,7 @@ services:
     depends_on:
       - backend
     networks:
-      - ums-dev-network
+      - users-dev-network
     command: >
       sh -c "
         npm install &&
@@ -248,7 +248,7 @@ services:
   # pgAdmin 数据库管理工具
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: ums-pgadmin-dev
+    container_name: users-pgadmin-dev
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin123
@@ -263,17 +263,17 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - ums-dev-network
+      - users-dev-network
 
   # MailHog 邮件测试服务
   mailhog:
     image: mailhog/mailhog:latest
-    container_name: ums-mailhog-dev
+    container_name: users-mailhog-dev
     ports:
       - "1025:1025"  # SMTP 端口
       - "8025:8025"  # Web UI 端口
     networks:
-      - ums-dev-network
+      - users-dev-network
 
 volumes:
   postgres_dev_data:
@@ -290,7 +290,7 @@ volumes:
     driver: local
 
 networks:
-  ums-dev-network:
+  users-dev-network:
     driver: bridge
     ipam:
       config:

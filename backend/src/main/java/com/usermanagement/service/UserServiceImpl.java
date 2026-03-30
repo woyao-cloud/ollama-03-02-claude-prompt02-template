@@ -74,19 +74,24 @@ public class UserServiceImpl implements UserService {
     /**
      * 根据 ID 获取用户
      *
+     * 性能优化：使用 JOIN FETCH 避免 N+1 查询
+     *
      * @param id 用户 ID
      * @return 用户 DTO
      */
     @Override
     @Transactional(readOnly = true)
     public UserDTO getUserById(UUID id) {
-        User user = userRepository.findById(id)
+        // 使用 JOIN FETCH 一次性加载用户、部门和角色，避免 N+1 查询
+        User user = userRepository.findByIdWithDepartmentAndRoles(id)
             .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
         return userMapper.toDto(user);
     }
 
     /**
      * 获取用户列表（分页）
+     *
+     * 性能优化：使用 JOIN FETCH 避免 N+1 查询
      *
      * @param pageable     分页参数
      * @param keyword      关键词（邮箱/姓名）
@@ -99,15 +104,16 @@ public class UserServiceImpl implements UserService {
     public UserListResponse getUsers(Pageable pageable, String keyword, UUID departmentId, UserStatus status) {
         Page<User> userPage;
 
-        // 根据筛选条件查询
+        // 根据筛选条件查询 - 优先使用带 JOIN FETCH 的查询避免 N+1
         if (departmentId != null && status != null) {
-            userPage = userRepository.findByDepartmentIdAndStatus(departmentId, status, pageable);
+            userPage = userRepository.findByDepartmentIdAndStatusWithRoles(departmentId, status, pageable);
         } else if (departmentId != null) {
             userPage = userRepository.findByDepartmentId(departmentId, pageable);
         } else if (status != null) {
             userPage = userRepository.findByStatus(status, pageable);
         } else {
-            userPage = userRepository.findAll(pageable);
+            // 使用带 JOIN FETCH 的查询避免 N+1
+            userPage = userRepository.findAllWithDepartmentAndRoles(pageable);
         }
 
         // 映射为 DTO
