@@ -1,11 +1,14 @@
 package com.usermanagement.service;
 
+import com.usermanagement.domain.DataScope;
 import com.usermanagement.domain.Department;
+import com.usermanagement.security.CustomUserDetails;
 import com.usermanagement.web.dto.DepartmentCreateRequest;
 import com.usermanagement.web.dto.DepartmentDTO;
 import com.usermanagement.web.dto.DepartmentTreeResponse;
 import com.usermanagement.web.dto.DepartmentUpdateRequest;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -63,4 +66,32 @@ public interface DepartmentService {
      * @return 是否有子部门
      */
     boolean hasChildren(UUID id);
+
+    /**
+     * 根据数据范围获取用户有权限的部门列表
+     *
+     * @param currentUser 当前用户
+     * @param dataScope 数据范围
+     * @return 部门列表
+     */
+    List<Department> getDepartmentsByDataScope(CustomUserDetails currentUser, DataScope dataScope);
+
+    /**
+     * 根据数据范围获取用户有权限的部门树
+     *
+     * @param currentUser 当前用户
+     * @param dataScope 数据范围
+     * @return 部门树响应
+     */
+    DepartmentTreeResponse getScopedDepartmentTree(CustomUserDetails currentUser, DataScope dataScope);
+
+    /**
+     * 检查用户是否有指定部门的访问权限
+     *
+     * @param currentUser 当前用户
+     * @param departmentId 部门 ID
+     * @param dataScope 数据范围
+     * @return 是否有权限
+     */
+    boolean hasDepartmentPermission(CustomUserDetails currentUser, UUID departmentId, DataScope dataScope);
 }

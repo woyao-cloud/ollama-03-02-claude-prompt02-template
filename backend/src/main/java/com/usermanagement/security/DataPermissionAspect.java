@@ -30,13 +30,16 @@ public class DataPermissionAspect {
 
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final DataScopeEvaluator dataScopeEvaluator;
 
     public DataPermissionAspect(
         RoleRepository roleRepository,
-        UserRoleRepository userRoleRepository
+        UserRoleRepository userRoleRepository,
+        DataScopeEvaluator dataScopeEvaluator
     ) {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
+        this.dataScopeEvaluator = dataScopeEvaluator;
     }
 
     /**

@@ -20,7 +20,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,19 +44,22 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final AccountLockoutService accountLockoutService;
     private final PasswordValidator passwordValidator;
+    private final AuditLogService auditLogService;
 
     public AuthService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         JwtTokenProvider jwtTokenProvider,
         AccountLockoutService accountLockoutService,
-        PasswordValidator passwordValidator
+        PasswordValidator passwordValidator,
+        AuditLogService auditLogService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.accountLockoutService = accountLockoutService;
         this.passwordValidator = passwordValidator;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -65,18 +71,28 @@ public class AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         String email = request.getEmail();
+        String clientIp = getClientIp();
+        String userAgent = getUserAgent();
 
         // 检查账户是否已被锁定
         if (accountLockoutService.isAccountLocked(email)) {
+            // 记录登录失败审计日志
+            auditLoginFailure(null, email, clientIp, userAgent, "账户已被锁定");
             throw new LockedException("账户已被锁定，请稍后再试");
         }
 
         // 查找用户
         User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new BadCredentialsException("邮箱或密码错误"));
+            .orElseThrow(() -> {
+                // 记录登录失败审计日志
+                auditLoginFailure(null, email, clientIp, userAgent, "用户不存在");
+                return new BadCredentialsException("邮箱或密码错误");
+            });
 
         // 检查用户状态
         if (user.getStatus() == UserStatus.INACTIVE) {
+            // 记录登录失败审计日志
+            auditLoginFailure(user.getId(), email, clientIp, userAgent, "账户已被禁用");
             throw new BadCredentialsException("账户已被禁用");
         }
 
@@ -84,6 +100,8 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             // 记录登录失败
             accountLockoutService.recordLoginFailure(email);
+            // 记录登录失败审计日志
+            auditLoginFailure(user.getId(), email, clientIp, userAgent, "密码错误");
             throw new BadCredentialsException("邮箱或密码错误");
         }
 
@@ -114,6 +132,18 @@ public class AuthService {
             .map(GrantedAuthority::getAuthority)
             .collect(Collectors.toList());
 
+        // 记录登录成功审计日志
+        auditLogService.logLoginAudit(
+            user.getId(),
+            user.getEmail(),
+            clientIp,
+            userAgent,
+            "SUCCESS",
+            null
+        );
+
+        logger.info("用户登录成功：{}", email);
+
         return AuthResponse.success(
             accessToken,
             refreshToken,
@@ -123,6 +153,24 @@ public class AuthService {
             user.getLastName(),
             roles
         );
+    }
+
+    /**
+     * 记录登录失败审计日志
+     */
+    private void auditLoginFailure(java.util.UUID userId, String email, String clientIp, String userAgent, String errorMessage) {
+        try {
+            auditLogService.logLoginAudit(
+                userId != null ? userId : null,
+                email,
+                clientIp,
+                userAgent,
+                "FAILURE",
+                errorMessage
+            );
+        } catch (Exception e) {
+            logger.error("记录登录失败审计日志异常", e);
+        }
     }
 
     /**
@@ -186,7 +234,27 @@ public class AuthService {
      * @param accessToken 访问令牌
      */
     public void logout(String accessToken) {
-        // TODO: 实现 Token 黑名单机制
+        // 获取当前用户并记录登出审计日志
+        try {
+            org.springframework.security.core.context.SecurityContext context =
+                org.springframework.security.core.context.SecurityContextHolder.getContext();
+            if (context.getAuthentication() != null &&
+                context.getAuthentication().getPrincipal() instanceof CustomUserDetails) {
+                CustomUserDetails userDetails = (CustomUserDetails) context.getAuthentication().getPrincipal();
+                String clientIp = getClientIp();
+                String userAgent = getUserAgent();
+
+                auditLogService.logLogoutAudit(
+                    java.util.UUID.fromString(userDetails.getUserId()),
+                    userDetails.getEmail(),
+                    clientIp,
+                    userAgent
+                );
+            }
+        } catch (Exception e) {
+            logger.error("记录登出审计日志异常", e);
+        }
+
         logger.info("用户登出");
     }
 
@@ -196,6 +264,50 @@ public class AuthService {
     private void updateLoginInfo(User user) {
         user.setLastLoginAt(Instant.now());
         userRepository.save(user);
+    }
+
+    /**
+     * 获取客户端 IP
+     */
+    private String getClientIp() {
+        try {
+            ServletRequestAttributes attributes =
+                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest request = attributes.getRequest();
+                String ip = request.getHeader("X-Forwarded-For");
+                if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+                    ip = request.getHeader("X-Real-IP");
+                }
+                if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+                    ip = request.getRemoteAddr();
+                }
+                if (ip != null && ip.contains(",")) {
+                    ip = ip.split(",")[0].trim();
+                }
+                return ip;
+            }
+        } catch (Exception e) {
+            logger.debug("获取客户端 IP 失败", e);
+        }
+        return "unknown";
+    }
+
+    /**
+     * 获取 User-Agent
+     */
+    private String getUserAgent() {
+        try {
+            ServletRequestAttributes attributes =
+                (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest request = attributes.getRequest();
+                return request.getHeader("User-Agent");
+            }
+        } catch (Exception e) {
+            logger.debug("获取 User-Agent 失败", e);
+        }
+        return "unknown";
     }
 
     /**

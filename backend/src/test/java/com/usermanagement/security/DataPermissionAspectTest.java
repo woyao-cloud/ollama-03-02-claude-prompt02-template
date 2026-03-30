@@ -36,6 +36,9 @@ class DataPermissionAspectTest {
     private UserRoleRepository userRoleRepository;
 
     @Mock
+    private DataScopeEvaluator dataScopeEvaluator;
+
+    @Mock
     private ProceedingJoinPoint joinPoint;
 
     @Mock
@@ -54,7 +57,7 @@ class DataPermissionAspectTest {
 
     @BeforeEach
     void setUp() {
-        aspect = new DataPermissionAspect(roleRepository, userRoleRepository);
+        aspect = new DataPermissionAspect(roleRepository, userRoleRepository, dataScopeEvaluator);
 
         // 创建测试用户
         currentUser = new User();

@@ -1,8 +1,11 @@
 package com.usermanagement.service;
 
+import com.usermanagement.domain.DataScope;
 import com.usermanagement.domain.Department;
 import com.usermanagement.domain.DepartmentStatus;
 import com.usermanagement.repository.DepartmentRepository;
+import com.usermanagement.security.CustomUserDetails;
+import com.usermanagement.security.DataScopeEvaluator;
 import com.usermanagement.service.cache.CacheEvictionListener;
 import com.usermanagement.service.cache.DepartmentCache;
 import com.usermanagement.web.dto.DepartmentCreateRequest;
@@ -36,6 +39,8 @@ public class DepartmentServiceImpl implements DepartmentService {
     private final DepartmentCache departmentCache;
     private final CacheEvictionListener cacheEvictionListener;
 
+    private DataScopeEvaluator dataScopeEvaluator;
+
     public DepartmentServiceImpl(DepartmentRepository departmentRepository,
                                  DepartmentMapper departmentMapper,
                                  TreeBuilder<Department> treeBuilder,
@@ -46,6 +51,13 @@ public class DepartmentServiceImpl implements DepartmentService {
         this.treeBuilder = treeBuilder;
         this.departmentCache = departmentCache;
         this.cacheEvictionListener = cacheEvictionListener;
+    }
+
+    /**
+     * 注入数据范围评估器（可选，用于数据权限功能）
+     */
+    public void setDataScopeEvaluator(DataScopeEvaluator dataScopeEvaluator) {
+        this.dataScopeEvaluator = dataScopeEvaluator;
     }
 
     @Override
@@ -170,6 +182,89 @@ public class DepartmentServiceImpl implements DepartmentService {
         }
 
         return response;
+    }
+
+    /**
+     * 根据数据范围获取用户有权限的部门列表
+     *
+     * @param currentUser 当前用户
+     * @param dataScope 数据范围
+     * @return 部门列表
+     */
+    @Transactional(readOnly = true)
+    public List<Department> getDepartmentsByDataScope(CustomUserDetails currentUser, DataScope dataScope) {
+        if (dataScopeEvaluator == null) {
+            return departmentRepository.findAllOrderedByPath();
+        }
+
+        if (dataScope == DataScope.ALL) {
+            return departmentRepository.findAllOrderedByPath();
+        }
+
+        List<UUID> deptIds = dataScopeEvaluator.evaluateDataScope(dataScope, currentUser);
+        if (deptIds.isEmpty()) {
+            return List.of();
+        }
+
+        return departmentRepository.findAllById(deptIds);
+    }
+
+    /**
+     * 根据数据范围获取用户有权限的部门树
+     *
+     * @param currentUser 当前用户
+     * @param dataScope 数据范围
+     * @return 部门树响应
+     */
+    @Transactional(readOnly = true)
+    public DepartmentTreeResponse getScopedDepartmentTree(CustomUserDetails currentUser, DataScope dataScope) {
+        if (dataScopeEvaluator == null) {
+            return getDepartmentTree(null);
+        }
+
+        if (dataScope == DataScope.ALL) {
+            return getDepartmentTree(null);
+        }
+
+        List<UUID> deptIds = dataScopeEvaluator.evaluateDataScope(dataScope, currentUser);
+        if (deptIds.isEmpty()) {
+            DepartmentTreeResponse emptyResponse = new DepartmentTreeResponse();
+            emptyResponse.setTree(List.of());
+            emptyResponse.setTotal(0L);
+            return emptyResponse;
+        }
+
+        List<Department> departments = departmentRepository.findAllById(deptIds);
+        List<Department> tree = treeBuilder.buildTree(departments, null);
+        List<DepartmentDTO> dtoList = departmentMapper.toTreeDto(tree);
+        List<DepartmentDTO> treeWithChildren = buildFullTree(dtoList);
+
+        return DepartmentTreeResponse.builder()
+                .tree(treeWithChildren)
+                .total((long) tree.size())
+                .build();
+    }
+
+    /**
+     * 检查用户是否有指定部门的访问权限
+     *
+     * @param currentUser 当前用户
+     * @param departmentId 部门 ID
+     * @param dataScope 数据范围
+     * @return 是否有权限
+     */
+    @Transactional(readOnly = true)
+    public boolean hasDepartmentPermission(CustomUserDetails currentUser, UUID departmentId, DataScope dataScope) {
+        if (dataScope == DataScope.ALL) {
+            return true;
+        }
+
+        if (dataScopeEvaluator == null) {
+            return false;
+        }
+
+        List<UUID> scopedDeptIds = dataScopeEvaluator.evaluateDataScope(dataScope, currentUser);
+        return scopedDeptIds.contains(departmentId);
     }
 
     /**
