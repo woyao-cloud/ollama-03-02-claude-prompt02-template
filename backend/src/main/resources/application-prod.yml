@@ -1,0 +1,117 @@
+# ============================================================================
+# 生产环境配置 (prod)
+# ============================================================================
+
+spring:
+  # 数据源配置 - PostgreSQL (生产)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:usermanagement}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: UserManagementHikariPool
+
+  # JPA/Hibernate 配置
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+    open-in-view: false
+
+  # Flyway 配置
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-on-validation-error: false
+    baseline-on-migrate: false
+
+# 虚拟线程
+spring:
+  threads:
+    virtual:
+      enabled: true
+
+# 服务器配置
+server:
+  port: ${SERVER_PORT:8080}
+  ssl:
+    enabled: ${SSL_ENABLED:false}
+    key-store: ${SSL_KEY_STORE:}
+    key-store-password: ${SSL_KEY_STORE_PASSWORD:}
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: application/json,text/html,text/xml,text/plain
+  forward-headers-strategy: framework
+  tomcat:
+    max-connections: 10000
+    threads:
+      max: 200
+      min-spare: 10
+    accept-count: 100
+    connection-timeout: 20000
+
+# 日志级别
+logging:
+  level:
+    root: WARN
+    com.usermanagement: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+  file:
+    name: /var/log/usermanagement/application.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+
+# JWT 配置 (生产 - 从环境变量读取)
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: 86400000        # 24 小时
+    refresh-expiration: 604800000  # 7 天
+    issuer: usermanagement-prod
+
+# 密码策略 (生产 - 严格)
+app:
+  password:
+    min-length: 12
+    require-uppercase: true
+    require-lowercase: true
+    require-digit: true
+    require-special: true
+
+# 账户锁定配置 (生产 - 严格)
+app:
+  account:
+    lockout:
+      threshold: 5
+      duration: 900
+
+# Actuator 安全配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+  security:
+    enabled: true

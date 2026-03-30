@@ -1,0 +1,84 @@
+# ============================================================================
+# 开发环境配置 (dev)
+# ============================================================================
+
+spring:
+  # 数据源配置 - H2 (开发用)
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  # JPA/Hibernate 配置
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+    open-in-view: false
+
+  # Flyway 配置
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-on-validation-error: false
+
+  # H2 控制台 (开发用)
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# 虚拟线程 (JDK 21+)
+spring:
+  threads:
+    virtual:
+      enabled: true
+
+# 服务器配置
+server:
+  port: 8080
+  ssl:
+    enabled: false
+
+# 日志级别
+logging:
+  level:
+    root: INFO
+    com.usermanagement: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# JWT 配置 (开发用)
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-key-for-development-only-must-be-changed-in-prod}
+    expiration: 86400000        # 24 小时
+    refresh-expiration: 604800000  # 7 天
+    issuer: usermanagement-dev
+
+# 密码策略 (开发用 - 简化)
+app:
+  password:
+    min-length: 6
+    require-uppercase: false
+    require-lowercase: false
+    require-digit: false
+    require-special: false
+
+# 账户锁定配置
+app:
+  account:
+    lockout:
+      threshold: 10
+      duration: 300

@@ -1,0 +1,118 @@
+# ============================================================================
+# 用户管理系统 - 主配置文件
+# ============================================================================
+
+spring:
+  application:
+    name: usermanagement
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # Redis 配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+  # Jackson JSON 配置
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+  # 邮件配置
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# 服务器配置
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.usermanagement: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Actuator 监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  info:
+    env:
+      enabled: true
+
+# 应用信息
+info:
+  app:
+    name: 用户管理系统
+    description: 全栈用户管理系统 - Spring Boot 后端
+    version: 1.0.0-SNAPSHOT
+
+# ============================================================================
+# 应用配置
+# ============================================================================
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+  # JWT 配置
+  jwt:
+    secret: ${JWT_SECRET:your-secret-key-change-in-production}
+    expiration: ${JWT_EXPIRATION:86400000}  # 24 小时
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 天
+    issuer: ${JWT_ISSUER:usermanagement-system}
+
+  # 密码策略配置
+  password:
+    min-length: 8
+    require-uppercase: true
+    require-lowercase: true
+    require-digit: true
+    require-special: false
+
+  # 账户锁定配置
+  account:
+    lockout:
+      threshold: 5        # 5 次失败后锁定
+      duration: 900       # 锁定 15 分钟 (秒)
+
+# ============================================================================
+# 缓存配置
+# ============================================================================
+cache:
+  department:
+    tree:
+      expiration: 1800          # 部门树缓存过期时间 (秒),默认 30 分钟
+      null-expiration: 300      # 空值缓存过期时间 (秒),默认 5 分钟 (缓存穿透保护)

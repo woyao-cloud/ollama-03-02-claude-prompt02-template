@@ -1,0 +1,21 @@
+数据库表结构设计已完成。
+
+  完成的工作
+
+  创建的 Flyway 迁移脚本 (4 个文件):
+  1. V1__initial_schema.sql - 核心表结构（用户、部门、角色、权限及关联表）
+  2. V2__audit_log_partitions.sql - 审计日志分区表（按月分区，预创建 12 个月）
+  3. V3__indexes_and_constraints.sql - 性能优化索引和外键约束
+  4. V4__system_configs.sql - 系统配置表和配置历史表（含 17 条初始配置）
+
+  配套文档:
+  - db/migration/README.md - 迁移脚本使用说明
+  - docs/DATABASE_DESIGN.md - 数据库设计文档
+
+  核心设计特性:
+  - UUID 主键（分布式友好）
+  - 软删除支持（deleted_at 字段）
+  - 乐观锁（version 字段）
+  - Materialized Path 部门树（支持 5 级层级）
+  - 审计日志按月分区
+  - 17 个系统初始配置项
