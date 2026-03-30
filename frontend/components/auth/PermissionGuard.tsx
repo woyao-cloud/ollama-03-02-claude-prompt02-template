@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { usePermissionStore, DATA_SCOPE, type DataScope } from '@/stores/permissionStore';
 
 interface PermissionGuardProps {
   children: ReactNode;
@@ -62,10 +63,46 @@ export function PermissionGuard({
 }
 
 /**
+ * 数据范围守卫组件
+ *
+ * 用途：根据用户数据范围控制 UI 元素显示
+ *
+ * 使用示例：
+ * <DataScopeGuard minScope="DEPT">
+ *   <Button>查看部门数据</Button>
+ * </DataScopeGuard>
+ */
+export function DataScopeGuard({
+  children,
+  minScope,
+  fallback = null,
+}: {
+  children: ReactNode;
+  minScope: DataScope;
+  fallback?: ReactNode;
+}) {
+  const { dataScope } = usePermissionStore();
+  const scopeLevels: Record<DataScope, number> = {
+    SELF: 0,
+    DEPT_ONLY: 1,
+    DEPT: 2,
+    ALL: 3,
+  };
+
+  const hasAccess = scopeLevels[dataScope as DataScope] >= scopeLevels[minScope];
+
+  if (hasAccess) {
+    return <>{children}</>;
+  }
+
+  return <>{fallback}</>;
+}
+
+/**
  * 权限检查 Hook
  *
  * 使用示例：
- * const { hasPermission } = usePermission();
+ * const { hasPermission, hasAnyPermission, hasAllPermissions } = usePermission();
  * if (hasPermission('user:create')) { ... }
  */
 export function usePermission() {
@@ -75,5 +112,51 @@ export function usePermission() {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
+  };
+}
+
+/**
+ * 数据权限范围 Hook
+ *
+ * 使用示例：
+ * const { dataScope, canAccessData, canAccessDeptData } = useDataScope();
+ * if (canAccessData('DEPT')) { ... }
+ */
+export function useDataScope() {
+  const { dataScope } = usePermissionStore();
+
+  const scopeLevels: Record<DataScope, number> = {
+    SELF: 0,
+    DEPT_ONLY: 1,
+    DEPT: 2,
+    ALL: 3,
+  };
+
+  const currentLevel = scopeLevels[dataScope as DataScope] || 0;
+
+  return {
+    dataScope,
+    /**
+     * 检查是否可以访问指定范围的数据
+     */
+    canAccessData: (scope: DataScope): boolean => {
+      return currentLevel >= scopeLevels[scope];
+    },
+    /**
+     * 是否可以访问全部数据
+     */
+    canAccessAll: (): boolean => currentLevel >= scopeLevels.ALL,
+    /**
+     * 是否可以访问部门及以下数据
+     */
+    canAccessDeptData: (): boolean => currentLevel >= scopeLevels.DEPT,
+    /**
+     * 是否可以访问本部门数据
+     */
+    canAccessDeptOnlyData: (): boolean => currentLevel >= scopeLevels.DEPT_ONLY,
+    /**
+     * 是否只能访问本人数据
+     */
+    canAccessSelfOnly: (): boolean => currentLevel === scopeLevels.SELF,
   };
 }

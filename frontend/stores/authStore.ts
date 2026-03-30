@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { authService } from '@/lib/api';
+import { usePermissionStore } from './permissionStore';
 import type { User, Permission } from '@/types';
 
 // Cookie 工具函数
@@ -34,6 +35,7 @@ interface AuthState {
   hasPermission: (permissionCode: string) => boolean;
   hasAnyPermission: (permissionCodes: string[]) => boolean;
   hasAllPermissions: (permissionCodes: string[]) => boolean;
+  refreshPermissions: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -102,10 +104,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // 如果是超级管理员，拥有所有权限
     if (user.roleIds?.includes('admin')) return true;
 
-    // TODO: 实际项目中需要从后端获取用户的完整权限列表
-    // 目前简化处理：假设拥有基本权限
-    // 后续可通过扩展 User 类型添加 permissions 字段
-    return true;
+    // 使用 permissionStore 检查权限
+    return usePermissionStore.getState().hasPermission(permissionCode);
   },
 
   // 检查是否拥有任意一个权限
@@ -116,6 +116,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // 检查是否拥有所有权限
   hasAllPermissions: (permissionCodes: string[]): boolean => {
     return permissionCodes.every(code => get().hasPermission(code));
+  },
+
+  // 刷新用户权限
+  refreshPermissions: async (): Promise<void> => {
+    await usePermissionStore.getState().refreshPermissions();
   },
 }));
 

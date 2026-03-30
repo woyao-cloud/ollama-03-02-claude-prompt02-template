@@ -24,8 +24,13 @@ const menuItems = [
     icon: Users,
   },
   {
-    title: '角色权限',
+    title: '角色管理',
     href: '/roles',
+    icon: Shield,
+  },
+  {
+    title: '权限配置',
+    href: '/permissions',
     icon: Shield,
   },
   {

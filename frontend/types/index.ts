@@ -98,3 +98,6 @@ export interface QueryParams {
   search?: string;
   [key: string]: unknown;
 }
+
+// 数据范围类型
+export type DataScope = 'ALL' | 'DEPT' | 'DEPT_ONLY' | 'SELF';

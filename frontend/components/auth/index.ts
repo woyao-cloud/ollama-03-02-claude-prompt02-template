@@ -1,1 +1,6 @@
-export { PermissionGuard, usePermission } from './PermissionGuard';
+export {
+  PermissionGuard,
+  DataScopeGuard,
+  usePermission,
+  useDataScope,
+} from './PermissionGuard';
