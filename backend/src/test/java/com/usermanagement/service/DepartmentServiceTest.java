@@ -3,6 +3,8 @@ package com.usermanagement.service;
 import com.usermanagement.domain.Department;
 import com.usermanagement.domain.DepartmentStatus;
 import com.usermanagement.repository.DepartmentRepository;
+import com.usermanagement.service.cache.CacheEvictionListener;
+import com.usermanagement.service.cache.DepartmentCache;
 import com.usermanagement.web.dto.DepartmentCreateRequest;
 import com.usermanagement.web.dto.DepartmentDTO;
 import com.usermanagement.web.dto.DepartmentTreeResponse;
@@ -45,6 +47,12 @@ class DepartmentServiceTest {
     @Mock
     private TreeBuilder<Department> treeBuilder;
 
+    @Mock
+    private DepartmentCache departmentCache;
+
+    @Mock
+    private CacheEvictionListener cacheEvictionListener;
+
     private DepartmentServiceImpl departmentService;
 
     private static final String TEST_DEPT_NAME = "技术部";
@@ -55,7 +63,7 @@ class DepartmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        departmentService = new DepartmentServiceImpl(departmentRepository, departmentMapper, treeBuilder);
+        departmentService = new DepartmentServiceImpl(departmentRepository, departmentMapper, treeBuilder, departmentCache, cacheEvictionListener);
     }
 
     @Nested
@@ -91,6 +99,8 @@ class DepartmentServiceTest {
             then(departmentRepository).should().save(deptCaptor.capture());
             Department savedDept = deptCaptor.getValue();
             assertThat(savedDept.getPath()).startsWith("/");
+
+            then(cacheEvictionListener).should().onDepartmentCreated(savedDept);
         }
 
         @Test
@@ -122,6 +132,7 @@ class DepartmentServiceTest {
             // Then
             assertThat(result).isNotNull();
             assertThat(child.getPath()).isEqualTo("/parent-path/" + child.getId());
+            then(cacheEvictionListener).should().onDepartmentCreated(child);
         }
 
         @Test
@@ -143,6 +154,7 @@ class DepartmentServiceTest {
                 .hasMessageContaining("父部门不存在");
 
             verify(departmentRepository, never()).save(any());
+            then(cacheEvictionListener).should(never()).onDepartmentCreated(any());
         }
 
         @Test
@@ -162,6 +174,7 @@ class DepartmentServiceTest {
                 .hasMessageContaining("部门代码已存在");
 
             verify(departmentRepository, never()).save(any());
+            then(cacheEvictionListener).should(never()).onDepartmentCreated(any());
         }
 
         @Test
@@ -218,6 +231,7 @@ class DepartmentServiceTest {
             assertThat(department.getDescription()).isEqualTo("新描述");
             assertThat(department.getSortOrder()).isEqualTo(5);
             verify(departmentRepository).save(department);
+            then(cacheEvictionListener).should().onDepartmentUpdated(department);
         }
 
         @Test
@@ -238,6 +252,7 @@ class DepartmentServiceTest {
 
             // Then
             assertThat(department.getManagerId()).isEqualTo(TEST_MANAGER_ID);
+            then(cacheEvictionListener).should().onDepartmentUpdated(department);
         }
 
         @Test
@@ -316,7 +331,7 @@ class DepartmentServiceTest {
     class GetDepartmentTreeTests {
 
         @Test
-        @DisplayName("应该获取完整部门树")
+        @DisplayName("应该获取完整部门树并缓存")
         void shouldGetFullDepartmentTree() {
             // Given
             Department root = createDepartment(1, null);
@@ -330,6 +345,7 @@ class DepartmentServiceTest {
             given(treeBuilder.buildTree(departments, null)).willReturn(List.of(root));
             given(departmentMapper.toDto(root)).willReturn(rootDto);
             given(departmentMapper.toDto(child)).willReturn(childDto);
+            given(departmentCache.getDepartmentTree()).willReturn(null);
 
             // When
             DepartmentTreeResponse response = departmentService.getDepartmentTree(null);
@@ -337,6 +353,7 @@ class DepartmentServiceTest {
             // Then
             assertThat(response).isNotNull();
             assertThat(response.getTree()).isNotEmpty();
+            then(departmentCache).should().setDepartmentTree(response);
         }
 
         @Test
@@ -359,6 +376,24 @@ class DepartmentServiceTest {
             assertThat(response).isNotNull();
             verify(treeBuilder).buildTree(departments, 1);
         }
+
+        @Test
+        @DisplayName("应该从缓存获取部门树")
+        void shouldGetDepartmentTreeFromCache() {
+            // Given
+            DepartmentTreeResponse cachedResponse = new DepartmentTreeResponse();
+            cachedResponse.setTree(List.of());
+            cachedResponse.setTotal(0L);
+
+            given(departmentCache.getDepartmentTree()).willReturn(cachedResponse);
+
+            // When
+            DepartmentTreeResponse response = departmentService.getDepartmentTree(null);
+
+            // Then
+            assertThat(response).isSameAs(cachedResponse);
+            then(departmentRepository).should(never()).findAllOrderedByPath();
+        }
     }
 
     @Nested
@@ -372,6 +407,7 @@ class DepartmentServiceTest {
             Department department = createDepartment(1, null);
 
             given(departmentRepository.findById(TEST_DEPT_ID)).willReturn(Optional.of(department));
+            given(departmentRepository.save(department)).willReturn(department);
 
             // When
             departmentService.deleteDepartment(TEST_DEPT_ID);
@@ -379,6 +415,7 @@ class DepartmentServiceTest {
             // Then
             verify(departmentRepository).delete(department);
             assertThat(department.getDeletedAt()).isNotNull();
+            then(cacheEvictionListener).should().onDepartmentDeleted(department);
         }
 
         @Test

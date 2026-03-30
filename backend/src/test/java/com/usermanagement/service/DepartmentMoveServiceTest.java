@@ -3,7 +3,9 @@ package com.usermanagement.service;
 import com.usermanagement.domain.Department;
 import com.usermanagement.domain.DepartmentStatus;
 import com.usermanagement.repository.DepartmentRepository;
+import com.usermanagement.web.dto.DepartmentDTO;
 import com.usermanagement.web.dto.DepartmentMoveRequest;
+import com.usermanagement.web.mapper.DepartmentMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +33,9 @@ class DepartmentMoveServiceTest {
     @Mock
     private DepartmentRepository departmentRepository;
 
+    @Mock
+    private DepartmentMapper departmentMapper;
+
     private DepartmentMoveServiceImpl moveService;
 
     private static final UUID TEST_DEPT_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
@@ -39,7 +44,7 @@ class DepartmentMoveServiceTest {
 
     @BeforeEach
     void setUp() {
-        moveService = new DepartmentMoveServiceImpl(departmentRepository);
+        moveService = new DepartmentMoveServiceImpl(departmentRepository, departmentMapper);
     }
 
     @Nested
@@ -52,6 +57,7 @@ class DepartmentMoveServiceTest {
             // Given
             Department department = createDepartment(2, TEST_PARENT_ID, "/old/parent/dept");
             Department newParent = createDepartment(1, null, "/new-parent");
+            DepartmentDTO dto = createDTO();
 
             DepartmentMoveRequest request = new DepartmentMoveRequest();
             request.setParentId(TEST_NEW_PARENT_ID.toString());
@@ -59,6 +65,7 @@ class DepartmentMoveServiceTest {
 
             given(departmentRepository.findById(TEST_DEPT_ID)).willReturn(Optional.of(department));
             given(departmentRepository.findById(TEST_NEW_PARENT_ID)).willReturn(Optional.of(newParent));
+            given(departmentMapper.toDto(department)).willReturn(dto);
 
             // When
             moveService.moveDepartment(TEST_DEPT_ID, request);
@@ -75,12 +82,14 @@ class DepartmentMoveServiceTest {
             // Given
             Department department = createDepartment(2, TEST_PARENT_ID, "/old/dept");
             Department newParent = createDepartment(1, null, "/new-parent");
+            DepartmentDTO dto = createDTO();
 
             DepartmentMoveRequest request = new DepartmentMoveRequest();
             request.setParentId(TEST_NEW_PARENT_ID.toString());
 
             given(departmentRepository.findById(TEST_DEPT_ID)).willReturn(Optional.of(department));
             given(departmentRepository.findById(TEST_NEW_PARENT_ID)).willReturn(Optional.of(newParent));
+            given(departmentMapper.toDto(department)).willReturn(dto);
 
             // When
             moveService.moveDepartment(TEST_DEPT_ID, request);
@@ -95,12 +104,14 @@ class DepartmentMoveServiceTest {
             // Given
             Department department = createDepartment(2, TEST_PARENT_ID, "/old/dept");
             Department newParent = createDepartment(1, null, "/new-parent");
+            DepartmentDTO dto = createDTO();
 
             DepartmentMoveRequest request = new DepartmentMoveRequest();
             request.setParentId(TEST_NEW_PARENT_ID.toString());
 
             given(departmentRepository.findById(TEST_DEPT_ID)).willReturn(Optional.of(department));
             given(departmentRepository.findById(TEST_NEW_PARENT_ID)).willReturn(Optional.of(newParent));
+            given(departmentMapper.toDto(department)).willReturn(dto);
 
             // When
             moveService.moveDepartment(TEST_DEPT_ID, request);
@@ -115,6 +126,7 @@ class DepartmentMoveServiceTest {
             // Given
             Department department = createDepartment(2, TEST_PARENT_ID, "/old/dept");
             Department newParent = createDepartment(1, null, "/new-parent");
+            DepartmentDTO dto = createDTO();
 
             DepartmentMoveRequest request = new DepartmentMoveRequest();
             request.setParentId(TEST_NEW_PARENT_ID.toString());
@@ -122,6 +134,7 @@ class DepartmentMoveServiceTest {
 
             given(departmentRepository.findById(TEST_DEPT_ID)).willReturn(Optional.of(department));
             given(departmentRepository.findById(TEST_NEW_PARENT_ID)).willReturn(Optional.of(newParent));
+            given(departmentMapper.toDto(department)).willReturn(dto);
 
             // When
             moveService.moveDepartment(TEST_DEPT_ID, request);
@@ -208,12 +221,14 @@ class DepartmentMoveServiceTest {
             // Given
             Department department = createDepartment(5, TEST_PARENT_ID, "/l1/l2/l3/l4/dept");
             Department newParent = createDepartment(5, null, "/l1/l2/l3/l4/parent");
+            DepartmentDTO dto = createDTO();
 
             DepartmentMoveRequest request = new DepartmentMoveRequest();
             request.setParentId(TEST_NEW_PARENT_ID.toString());
 
             given(departmentRepository.findById(TEST_DEPT_ID)).willReturn(Optional.of(department));
             given(departmentRepository.findById(TEST_NEW_PARENT_ID)).willReturn(Optional.of(newParent));
+            given(departmentMapper.toDto(department)).willReturn(dto);
 
             // When & Then
             assertThatThrownBy(() -> moveService.moveDepartment(TEST_DEPT_ID, request))
@@ -264,11 +279,13 @@ class DepartmentMoveServiceTest {
         void shouldUpdatePathWhenMovingToRoot() {
             // Given
             Department department = createDepartment(2, TEST_PARENT_ID, "/old/parent/dept");
+            DepartmentDTO dto = createDTO();
 
             DepartmentMoveRequest request = new DepartmentMoveRequest();
             request.setParentId(null); // 移动到根节点
 
             given(departmentRepository.findById(TEST_DEPT_ID)).willReturn(Optional.of(department));
+            given(departmentMapper.toDto(department)).willReturn(dto);
 
             // When
             moveService.moveDepartment(TEST_DEPT_ID, request);
@@ -291,5 +308,16 @@ class DepartmentMoveServiceTest {
         dept.setPath(path);
         dept.setStatus(DepartmentStatus.ACTIVE);
         return dept;
+    }
+
+    private DepartmentDTO createDTO() {
+        DepartmentDTO dto = new DepartmentDTO();
+        dto.setId(TEST_DEPT_ID.toString());
+        dto.setName("测试部门");
+        dto.setCode("TEST");
+        dto.setLevel(2);
+        dto.setPath("/old/parent/dept");
+        dto.setStatus("ACTIVE");
+        return dto;
     }
 }

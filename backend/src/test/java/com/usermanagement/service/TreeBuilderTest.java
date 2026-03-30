@@ -40,8 +40,8 @@ class TreeBuilderTest {
         }
 
         @Test
-        @DisplayName("应该构建两层树形结构")
-        void shouldBuildTwoLevelTree() {
+        @DisplayName("应该支持按层级筛选")
+        void shouldSupportLevelFilter() {
             // Given
             UUID rootId = UUID.randomUUID();
             UUID childId = UUID.randomUUID();
@@ -55,38 +55,34 @@ class TreeBuilderTest {
             List<Department> departments = List.of(root, child);
 
             // When
-            List<Department> result = treeBuilder.buildTree(departments, null);
+            List<Department> result = treeBuilder.buildTree(departments, 1);
 
             // Then
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getId()).isEqualTo(rootId);
+            assertThat(result.get(0).getLevel()).isEqualTo(1);
         }
 
         @Test
-        @DisplayName("应该构建多层树形结构")
-        void shouldBuildMultiLevelTree() {
+        @DisplayName("应该筛选出指定层级的部门")
+        void shouldFilterByLevel() {
             // Given
-            UUID rootId = UUID.randomUUID();
-            UUID level2Id = UUID.randomUUID();
-            UUID level3Id = UUID.randomUUID();
+            Department level1 = createDepartment(null, 1, "/l1");
+            level1.setId(UUID.randomUUID());
 
-            Department root = createDepartment(null, 1, "/root");
-            root.setId(rootId);
+            Department level2 = createDepartment(level1.getId(), 2, "/l1/l2");
+            level2.setId(UUID.randomUUID());
 
-            Department level2 = createDepartment(rootId, 2, "/root/l2");
-            level2.setId(level2Id);
+            Department level3 = createDepartment(level2.getId(), 3, "/l1/l2/l3");
+            level3.setId(UUID.randomUUID());
 
-            Department level3 = createDepartment(level2Id, 3, "/root/l2/l3");
-            level3.setId(level3Id);
-
-            List<Department> departments = List.of(root, level2, level3);
+            List<Department> departments = List.of(level1, level2, level3);
 
             // When
-            List<Department> result = treeBuilder.buildTree(departments, null);
+            List<Department> result = treeBuilder.buildTree(departments, 2);
 
             // Then
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getId()).isEqualTo(rootId);
+            assertThat(result.get(0).getLevel()).isEqualTo(2);
         }
 
         @Test
@@ -109,29 +105,6 @@ class TreeBuilderTest {
 
             // Then
             assertThat(result).hasSize(2);
-        }
-
-        @Test
-        @DisplayName("应该支持按层级筛选")
-        void shouldSupportLevelFilter() {
-            // Given
-            UUID rootId = UUID.randomUUID();
-            UUID childId = UUID.randomUUID();
-
-            Department root = createDepartment(null, 1, "/root");
-            root.setId(rootId);
-
-            Department child = createDepartment(rootId, 2, "/root/child");
-            child.setId(childId);
-
-            List<Department> departments = List.of(root, child);
-
-            // When
-            List<Department> result = treeBuilder.buildTree(departments, 1);
-
-            // Then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).getLevel()).isEqualTo(1);
         }
     }
 

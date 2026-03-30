@@ -8,6 +8,20 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
+  # Redis 配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
   # Jackson JSON 配置
   jackson:
     default-property-inclusion: non_null
@@ -93,3 +107,12 @@ app:
     lockout:
       threshold: 5        # 5 次失败后锁定
       duration: 900       # 锁定 15 分钟 (秒)
+
+# ============================================================================
+# 缓存配置
+# ============================================================================
+cache:
+  department:
+    tree:
+      expiration: 1800          # 部门树缓存过期时间 (秒),默认 30 分钟
+      null-expiration: 300      # 空值缓存过期时间 (秒),默认 5 分钟 (缓存穿透保护)
