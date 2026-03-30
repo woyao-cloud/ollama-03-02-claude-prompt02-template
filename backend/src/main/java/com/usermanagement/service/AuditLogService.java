@@ -2,9 +2,11 @@ package com.usermanagement.service;
 
 import com.usermanagement.domain.AuditLog;
 import com.usermanagement.domain.AuditOperationType;
+import com.usermanagement.infrastructure.audit.AsyncAuditLogWriter;
 import com.usermanagement.repository.AuditLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +21,11 @@ import java.util.UUID;
 
 /**
  * 审计日志服务
+ *
+ * 性能优化:
+ * - 支持同步和异步两种写入模式
+ * - 异步模式使用队列 + 批量写入
+ * - 关键操作 (如登录) 使用同步确保可靠性
  */
 @Service
 @Transactional(readOnly = true)
@@ -27,15 +34,27 @@ public class AuditLogService {
     private static final Logger logger = LoggerFactory.getLogger(AuditLogService.class);
 
     private final AuditLogRepository auditLogRepository;
+    private final AsyncAuditLogWriter asyncAuditLogWriter;
 
-    public AuditLogService(AuditLogRepository auditLogRepository) {
+    /**
+     * 是否启用异步写入
+     */
+    @Value("${audit.async.enabled:true}")
+    private boolean asyncEnabled;
+
+    public AuditLogService(
+        AuditLogRepository auditLogRepository,
+        AsyncAuditLogWriter asyncAuditLogWriter
+    ) {
         this.auditLogRepository = auditLogRepository;
+        this.asyncAuditLogWriter = asyncAuditLogWriter;
     }
 
     /**
      * 记录审计日志
+     *
+     * 性能优化：支持异步写入模式
      */
-    @Transactional
     public void logAudit(
         UUID userId,
         String userEmail,
@@ -65,8 +84,21 @@ public class AuditLogService {
             .errorMessage(errorMessage)
             .build();
 
-        auditLogRepository.save(auditLog);
-        logger.info("审计日志记录：{} - {} - {} - {}", userEmail, operationType, resourceType, operationResult);
+        if (asyncEnabled) {
+            // 异步写入模式
+            boolean submitted = asyncAuditLogWriter.submit(auditLog);
+            if (submitted) {
+                logger.debug("审计日志已异步提交：{} - {} - {}", userEmail, operationType, resourceType);
+            } else {
+                // 异步提交失败，降级为同步写入
+                logger.warn("异步提交审计日志失败，降级为同步写入");
+                auditLogRepository.save(auditLog);
+            }
+        } else {
+            // 同步写入模式
+            auditLogRepository.save(auditLog);
+            logger.info("审计日志记录：{} - {} - {} - {}", userEmail, operationType, resourceType, operationResult);
+        }
     }
 
     /**
