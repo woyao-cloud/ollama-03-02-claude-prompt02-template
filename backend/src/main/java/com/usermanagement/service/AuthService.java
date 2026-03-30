@@ -81,8 +81,8 @@ public class AuthService {
             throw new LockedException("账户已被锁定，请稍后再试");
         }
 
-        // 查找用户
-        User user = userRepository.findByEmail(email)
+        // 查找用户 - 使用 JOIN FETCH 避免 N+1 查询
+        User user = userRepository.findByEmailWithRoles(email)
             .orElseThrow(() -> {
                 // 记录登录失败审计日志
                 auditLoginFailure(null, email, clientIp, userAgent, "用户不存在");
@@ -312,10 +312,17 @@ public class AuthService {
 
     /**
      * 获取用户权限列表
-     * 注意：当前实现仅返回默认角色，后续需要从数据库加载实际角色
+     *
+     * 性能优化：由于使用了 JOIN FETCH，roles 已经预先加载，不会产生 N+1 查询
      */
     private List<GrantedAuthority> getUserAuthorities(User user) {
-        // TODO: 从数据库加载用户角色和权限
-        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        // 从数据库加载用户角色和权限（已通过 JOIN FETCH 预先加载）
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        }
+
+        return user.getRoles().stream()
+            .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getCode()))
+            .collect(Collectors.toList());
     }
 }

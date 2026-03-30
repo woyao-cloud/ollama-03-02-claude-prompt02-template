@@ -46,9 +46,11 @@
 - 减少网络往返次数
 - 批量缓存操作性能提升约 5-10 倍
 
-### B15.2 异步审计日志优化 ⏳
-- 待实现 Kafka 异步写入
-- 当前实现：内存队列 + 异步线程池
+### B15.2 异步审计日志优化 ✅
+- 实现 `AsyncAuditLogWriter` 异步写入器
+- 批量写入数据库 (默认 100 条/批次)
+- 内存队列缓冲 (容量 5000)
+- 定时刷新 (默认 1 秒间隔)
 
 ### B15.3 JWT 生成优化 ✅
 - 使用 HS512 算法
@@ -68,10 +70,11 @@
 - 权限查询索引：`idx_role_status_active`
 - 配置查询索引：`idx_config_key`
 
-### B15.6 查询语句优化 ⏳
+### B15.6 查询语句优化 ✅
 - JPA 批量操作配置
 - Hibernate 语句缓存
-- 待进一步优化 N+1 查询
+- JOIN FETCH 避免 N+1 查询
+- 新增优化查询方法 10+ 个
 
 ### B15.7 多级缓存架构 ✅
 - L1: 内存缓存 (ConcurrentHashMap)
@@ -114,7 +117,53 @@ JAVA_OPTS="-XX:+UseG1GC
 
 ---
 
+## 测试脚本
+
+### 已创建测试脚本
+
+| 脚本 | 描述 | 依赖 |
+|------|------|------|
+| `k6-login.js` | k6 登录压力测试 | k6 |
+| `loadtest.py` | Python 登录压力测试 | Python 3 + aiohttp |
+| `run-loadtest.bat` | Windows 执行脚本 | k6 或 Python |
+| `run-loadtest.sh` | Linux/Mac 执行脚本 | k6 或 Python |
+
+### 执行测试
+
+**Windows:**
+```bash
+# 使用默认配置 (50 用户，30 秒)
+tests\performance\run-loadtest.bat
+
+# 自定义配置
+tests\performance\run-loadtest.bat 100 60
+```
+
+**Linux/Mac:**
+```bash
+# 使用默认配置
+./tests/performance/run-loadtest.sh
+
+# 自定义配置
+./tests/performance/run-loadtest.sh 100 60
+```
+
+**直接使用 k6:**
+```bash
+k6 run --scenario baseline tests/performance/k6-login.js
+```
+
+**直接使用 Python:**
+```bash
+pip install aiohttp
+python tests/performance/loadtest.py --users 100 --duration 60
+```
+
+---
+
 ## 测试结果
+
+> **注意**: 以下测试结果需要实际执行压力测试后填写
 
 ### 场景 1: 基准测试 (10 VUs)
 
@@ -191,17 +240,36 @@ JAVA_OPTS="-XX:+UseG1GC
 ## 结论
 
 ### 是否达到性能目标
-- [ ] 登录接口 P95 < 100ms
-- [ ] 吞吐量 ≥ 10,000 TPS
-- [ ] 所有优化措施已实施
+- [ ] 登录接口 P95 < 100ms (待执行测试)
+- [ ] 吞吐量 ≥ 10,000 TPS (待执行测试)
+- [x] 所有优化措施已实施
+
+### 优化措施完成状态
+
+| 优化项 | 状态 | 说明 |
+|--------|------|------|
+| Redis Pipeline | ✅ | 批量操作服务完成 |
+| 异步审计日志 | ✅ | 队列 + 批量写入完成 |
+| JWT 优化 | ✅ | HS512 + 代码优化完成 |
+| 连接池调优 | ✅ | HikariCP 配置完成 |
+| 索引优化 | ✅ | V6 迁移脚本完成 |
+| 查询优化 | ✅ | N+1 查询问题解决 |
+| 多级缓存 | ✅ | L1+L2+L3 架构完成 |
+| 缓存预热 | ✅ | 启动预热组件完成 |
+| G1GC 调优 | ✅ | JVM 参数配置完成 |
+| 虚拟线程 | ✅ | JDK21 虚拟线程启用 |
+| 前端代码分割 | ✅ | Webpack 配置完成 |
+| 图片优化 | ✅ | WebP/AVIF 支持完成 |
 
 ### 后续行动
-1. 执行实际压力测试
-2. 根据测试结果进一步优化
-3. 更新性能报告
+1. 安装 k6 或 Python 运行压力测试
+2. 执行 4 个场景测试 (基准/压力/峰值/耐力)
+3. 根据测试结果填写性能报告
+4. 必要时进行针对性优化
 
 ---
 
 **报告生成日期**: 2026-03-30
+**更新日期**: 2026-03-30
 **负责人**: 性能优化团队
-**状态**: 待测试
+**状态**: 优化完成，待执行测试

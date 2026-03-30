@@ -97,4 +97,45 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      */
     @Query("SELECT u FROM User u WHERE u.email LIKE %:emailPattern% AND u.deletedAt IS NULL")
     List<User> findByEmailContaining(@Param("emailPattern") String emailPattern);
+
+    /**
+     * 分页查询用户（带部门和角色，避免 N+1）
+     *
+     * @param pageable 分页参数
+     * @return 用户分页列表
+     */
+    @Query("SELECT DISTINCT u FROM User u " +
+           "LEFT JOIN FETCH u.department d " +
+           "LEFT JOIN FETCH u.roles r " +
+           "WHERE u.deletedAt IS NULL")
+    Page<User> findAllWithDepartmentAndRoles(Pageable pageable);
+
+    /**
+     * 根据部门和状态分页查询（带角色，避免 N+1）
+     */
+    @Query("SELECT DISTINCT u FROM User u " +
+           "LEFT JOIN FETCH u.roles r " +
+           "WHERE u.departmentId = :departmentId AND u.status = :status AND u.deletedAt IS NULL")
+    Page<User> findByDepartmentIdAndStatusWithRoles(
+        @Param("departmentId") UUID departmentId,
+        @Param("status") UserStatus status,
+        Pageable pageable
+    );
+
+    /**
+     * 根据 ID 查询用户（带部门和角色，避免 N+1）
+     */
+    @Query("SELECT DISTINCT u FROM User u " +
+           "LEFT JOIN FETCH u.department d " +
+           "LEFT JOIN FETCH u.roles r " +
+           "WHERE u.id = :id AND u.deletedAt IS NULL")
+    java.util.Optional<User> findByIdWithDepartmentAndRoles(@Param("id") UUID id);
+
+    /**
+     * 根据邮箱查询用户（带角色，避免 N+1）
+     */
+    @Query("SELECT DISTINCT u FROM User u " +
+           "LEFT JOIN FETCH u.roles r " +
+           "WHERE u.email = :email AND u.deletedAt IS NULL")
+    java.util.Optional<User> findByEmailWithRoles(@Param("email") String email);
 }
