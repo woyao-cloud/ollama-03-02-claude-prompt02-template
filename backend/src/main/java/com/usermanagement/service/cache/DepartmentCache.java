@@ -19,7 +19,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 @Service
 public class DepartmentCache {
 
-    private static final Logger log = LoggerFactory.getLogger(DepartmentCache.class);
+    private static final Logger logger = LoggerFactory.getLogger(DepartmentCache.class);
     private static final String CACHE_KEY = "dept:tree";
 
     private final RedisTemplate<String, Object> redisTemplate;

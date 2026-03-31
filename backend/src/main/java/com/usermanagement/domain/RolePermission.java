@@ -7,7 +7,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * 角色权限关联实体
@@ -26,18 +25,26 @@ import java.util.UUID;
 public class RolePermission {
 
     /**
-     * 角色 ID - 复合主键
+     * 复合主键
      */
-    @Id
-    @Column(name = "role_id", nullable = false)
-    private UUID roleId;
+    @EmbeddedId
+    private RolePermissionId id;
 
     /**
-     * 权限 ID - 复合主键
+     * 角色 ID (映射到 id.roleId)
      */
-    @Id
-    @Column(name = "permission_id", nullable = false)
-    private UUID permissionId;
+    @MapsId("roleId")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
+
+    /**
+     * 权限 ID (映射到 id.permissionId)
+     */
+    @MapsId("permissionId")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "permission_id", nullable = false)
+    private Permission permission;
 
     /**
      * 创建时间
@@ -51,20 +58,18 @@ public class RolePermission {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         RolePermission that = (RolePermission) o;
-        return Objects.equals(roleId, that.roleId) &&
-                Objects.equals(permissionId, that.permissionId);
+        return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(roleId, permissionId);
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
         return "RolePermission{" +
-                "roleId='" + roleId + '\'' +
-                ", permissionId='" + permissionId + '\'' +
+                "id=" + id +
                 ", createdAt=" + createdAt +
                 '}';
     }

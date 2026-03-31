@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ConfigChangeListener {
 
-    private static final Logger log = LoggerFactory.getLogger(ConfigChangeListener.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigChangeListener.class);
 
     private final ConfigCache configCache;
 

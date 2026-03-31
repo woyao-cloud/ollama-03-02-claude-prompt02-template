@@ -1,6 +1,7 @@
 package com.usermanagement.security;
 
 import com.usermanagement.domain.*;
+import com.usermanagement.repository.RoleDataScopeRepository;
 import com.usermanagement.repository.RoleRepository;
 import com.usermanagement.repository.UserRoleRepository;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -31,15 +32,18 @@ public class DataPermissionAspect {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final DataScopeEvaluator dataScopeEvaluator;
+    private final RoleDataScopeRepository roleDataScopeRepository;
 
     public DataPermissionAspect(
         RoleRepository roleRepository,
         UserRoleRepository userRoleRepository,
-        DataScopeEvaluator dataScopeEvaluator
+        DataScopeEvaluator dataScopeEvaluator,
+        RoleDataScopeRepository roleDataScopeRepository
     ) {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;
         this.dataScopeEvaluator = dataScopeEvaluator;
+        this.roleDataScopeRepository = roleDataScopeRepository;
     }
 
     /**
@@ -85,7 +89,7 @@ public class DataPermissionAspect {
         }
 
         List<UUID> roleIds = userRoles.stream()
-            .map(UserRole::getRoleId)
+            .map(ur -> ur.getId().getRoleId())
             .collect(Collectors.toList());
 
         List<Role> roles = roleRepository.findAllById(roleIds);
@@ -178,11 +182,37 @@ public class DataPermissionAspect {
             case DEPT:
                 return Objects.equals(user.getDepartmentId(), currentUser.getDepartmentId());
             case CUSTOM:
-                // 自定义范围需要额外配置，当前实现返回 false
-                return false;
+                // 自定义范围：检查用户部门是否在角色的自定义范围内
+                return isUserDeptInCustomScope(currentUser, user.getDepartmentId());
             default:
                 return false;
         }
+    }
+
+    /**
+     * 检查用户部门是否在角色的自定义范围内
+     */
+    private boolean isUserDeptInCustomScope(CustomUserDetails currentUser, UUID targetDeptId) {
+        if (targetDeptId == null) {
+            return false;
+        }
+
+        // 获取用户的所有角色
+        UUID userId = UUID.fromString(currentUser.getUserId());
+        List<UserRole> userRoles = userRoleRepository.findAllByUserId(userId);
+        if (userRoles.isEmpty()) {
+            return false;
+        }
+
+        List<UUID> roleIds = userRoles.stream()
+            .map(ur -> ur.getId().getRoleId())
+            .collect(Collectors.toList());
+
+        // 使用 evaluator 获取自定义范围的部门 ID 列表
+        List<UUID> allowedDeptIds = dataScopeEvaluator.getCustomDeptIdsByRoles(roleIds);
+
+        // 检查目标部门是否在允许的范围内
+        return allowedDeptIds.contains(targetDeptId);
     }
 
     /**

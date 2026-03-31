@@ -3,6 +3,7 @@ package com.usermanagement.service;
 import com.usermanagement.domain.Permission;
 import com.usermanagement.domain.Role;
 import com.usermanagement.domain.RolePermission;
+import com.usermanagement.domain.RolePermissionId;
 import com.usermanagement.domain.RoleStatus;
 import com.usermanagement.repository.PermissionRepository;
 import com.usermanagement.repository.RolePermissionRepository;
@@ -231,9 +232,14 @@ public class RoleServiceImpl implements RoleService {
         // 创建新的权限关联
         List<RolePermission> newAssociations = new ArrayList<>();
         for (Permission permission : permissions) {
+            RolePermissionId id = new RolePermissionId();
+            id.setRoleId(roleId);
+            id.setPermissionId(permission.getId());
+
             RolePermission association = RolePermission.builder()
-                .roleId(roleId)
-                .permissionId(permission.getId())
+                .id(id)
+                .role(role)
+                .permission(permission)
                 .build();
             newAssociations.add(association);
         }

@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class ConfigCache {
 
-    private static final Logger log = LoggerFactory.getLogger(ConfigCache.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigCache.class);
 
     /**
      * 本地缓存键前缀

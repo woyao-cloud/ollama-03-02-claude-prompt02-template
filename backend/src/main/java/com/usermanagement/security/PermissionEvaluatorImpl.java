@@ -81,7 +81,12 @@ public class PermissionEvaluatorImpl implements PermissionEvaluator {
      * 检查用户是否拥有指定操作权限
      */
     private boolean hasOperationPermission(CustomUserDetails userDetails, String action) {
-        UUID userId = UUID.fromString(userDetails.getUserId());
+        String userIdStr = userDetails.getUserId();
+        if (userIdStr == null || userIdStr.isEmpty()) {
+            logger.warn("用户 ID 为空，无法检查权限");
+            return false;
+        }
+        UUID userId = UUID.fromString(userIdStr);
 
         // 获取用户所有角色
         List<UserRole> userRoles = userRoleRepository.findAllByUserId(userId);
@@ -91,7 +96,7 @@ public class PermissionEvaluatorImpl implements PermissionEvaluator {
 
         // 获取所有角色 ID
         List<UUID> roleIds = userRoles.stream()
-            .map(UserRole::getRoleId)
+            .map(ur -> ur.getId().getRoleId())
             .collect(Collectors.toList());
 
         // 加载完整角色信息并检查是否有 ADMIN 角色
@@ -110,7 +115,7 @@ public class PermissionEvaluatorImpl implements PermissionEvaluator {
 
         // 获取所有权限 ID
         List<UUID> permissionIds = rolePermissions.stream()
-            .map(RolePermission::getPermissionId)
+            .map(rp -> rp.getId().getPermissionId())
             .collect(Collectors.toList());
 
         // 加载权限详情
@@ -125,7 +130,12 @@ public class PermissionEvaluatorImpl implements PermissionEvaluator {
      * 检查数据权限
      */
     private boolean hasDataPermission(CustomUserDetails userDetails, User targetUser, String action) {
-        UUID currentUserId = UUID.fromString(userDetails.getUserId());
+        String userIdStr = userDetails.getUserId();
+        if (userIdStr == null || userIdStr.isEmpty()) {
+            logger.warn("用户 ID 为空，无法检查数据权限");
+            return false;
+        }
+        UUID currentUserId = UUID.fromString(userIdStr);
 
         // 如果是自己的数据，直接返回 true
         if (Objects.equals(currentUserId, targetUser.getId())) {
@@ -140,7 +150,7 @@ public class PermissionEvaluatorImpl implements PermissionEvaluator {
 
         // 加载完整角色信息
         List<UUID> roleIds = userRoles.stream()
-            .map(UserRole::getRoleId)
+            .map(ur -> ur.getId().getRoleId())
             .collect(Collectors.toList());
         List<Role> roles = roleRepository.findAllById(roleIds);
 
@@ -198,7 +208,7 @@ public class PermissionEvaluatorImpl implements PermissionEvaluator {
         }
 
         List<UUID> roleIds = userRoles.stream()
-            .map(UserRole::getRoleId)
+            .map(ur -> ur.getId().getRoleId())
             .collect(Collectors.toList());
 
         List<RolePermission> rolePermissions = rolePermissionRepository.findAllByRoleIdIn(roleIds);
@@ -207,7 +217,7 @@ public class PermissionEvaluatorImpl implements PermissionEvaluator {
         }
 
         List<UUID> permissionIds = rolePermissions.stream()
-            .map(RolePermission::getPermissionId)
+            .map(rp -> rp.getId().getPermissionId())
             .collect(Collectors.toList());
 
         List<Permission> permissions = permissionRepository.findAllById(permissionIds);

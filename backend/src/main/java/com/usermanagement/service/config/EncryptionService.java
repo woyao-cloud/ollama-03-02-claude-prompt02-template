@@ -20,7 +20,7 @@ import java.util.Base64;
 @Service
 public class EncryptionService {
 
-    private static final Logger log = LoggerFactory.getLogger(EncryptionService.class);
+    private static final Logger logger = LoggerFactory.getLogger(EncryptionService.class);
 
     private static final String ALGORITHM = "AES";
     private static final String TRANSFORMATION = "AES/ECB/PKCS5Padding";

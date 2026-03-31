@@ -46,9 +46,6 @@ public class JwtTokenProvider {
     private final long refreshExpiration;
     private final String issuer;
 
-    // 预计算的日期对象，减少对象创建
-    private static final ThreadLocal<Date> CURRENT_DATE = ThreadLocal.withInitial(Date::new);
-
     public JwtTokenProvider(AppProperties appProperties) {
         // 使用 HS512 算法 (256-bit 密钥)
         this.secretKey = Keys.hmacShaKeyFor(
@@ -89,8 +86,7 @@ public class JwtTokenProvider {
      * @return JWT Token
      */
     private String generateToken(Authentication authentication, long expirationTime) {
-        // 优化：复用 Date 对象，减少内存分配
-        Date now = CURRENT_DATE.get();
+        Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationTime);
 
         // 优化：精简 Claims，只保留必要字段

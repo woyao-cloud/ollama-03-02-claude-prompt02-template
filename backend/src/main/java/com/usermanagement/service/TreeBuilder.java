@@ -135,8 +135,12 @@ public class TreeBuilder<T> {
         try {
             var method = item.getClass().getMethod("getId");
             return (UUID) method.invoke(item);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException(
+                String.format("Entity class '%s' must have a getId() method", item.getClass().getName()), e);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to get ID", e);
+            throw new RuntimeException(
+                String.format("Failed to invoke getId() on class '%s'", item.getClass().getName()), e);
         }
     }
 
@@ -145,6 +149,9 @@ public class TreeBuilder<T> {
         try {
             var method = item.getClass().getMethod("getParentId");
             return (UUID) method.invoke(item);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException(
+                String.format("Entity class '%s' must have a getParentId() method", item.getClass().getName()), e);
         } catch (Exception e) {
             return null;
         }
@@ -154,6 +161,9 @@ public class TreeBuilder<T> {
         try {
             var method = item.getClass().getMethod("getLevel");
             return (int) method.invoke(item);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException(
+                String.format("Entity class '%s' must have a getLevel() method", item.getClass().getName()), e);
         } catch (Exception e) {
             return 1;
         }
@@ -164,8 +174,12 @@ public class TreeBuilder<T> {
         try {
             var method = item.getClass().getMethod("getChildren");
             return (List<T>) method.invoke(item);
-        } catch (Exception e) {
+        } catch (NoSuchMethodException e) {
+            // Entity doesn't have getChildren() - return null, caller handles it
             return null;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                String.format("Failed to invoke getChildren() on class '%s'", item.getClass().getName()), e);
         }
     }
 
@@ -173,8 +187,11 @@ public class TreeBuilder<T> {
         try {
             var method = parent.getClass().getMethod("setChildren", List.class);
             method.invoke(parent, children);
+        } catch (NoSuchMethodException e) {
+            // Entity doesn't have setChildren() - silently ignore, not all entities need children
         } catch (Exception e) {
-            // 忽略，实体可能没有 children 属性
+            throw new RuntimeException(
+                String.format("Failed to invoke setChildren() on class '%s'", parent.getClass().getName()), e);
         }
     }
 

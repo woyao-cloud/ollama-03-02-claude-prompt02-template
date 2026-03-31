@@ -31,7 +31,7 @@ import java.util.*;
 @Transactional(readOnly = true)
 public class ConfigService {
 
-    private static final Logger log = LoggerFactory.getLogger(ConfigService.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigService.class);
 
     private final ConfigRepository configRepository;
     private final ConfigHistoryRepository historyRepository;
@@ -238,8 +238,8 @@ public class ConfigService {
         }
 
         // 更新配置
+        // 注意：version 字段由 JPA @Version 注解自动管理，实现乐观锁
         config.setConfigValue(newValue);
-        config.setVersion(config.getVersion() + 1);
         config.setUpdatedBy(userId);
 
         // 更新状态（如果提供）

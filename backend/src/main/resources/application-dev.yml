@@ -59,10 +59,10 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
-# JWT 配置 (开发用)
+# JWT 配置 (开发用 - 必须设置环境变量)
 app:
   jwt:
-    secret: ${JWT_SECRET:dev-secret-key-for-development-only-must-be-changed-in-prod}
+    secret: ${JWT_SECRET}
     expiration: 86400000        # 24 小时
     refresh-expiration: 604800000  # 7 天
     issuer: usermanagement-dev

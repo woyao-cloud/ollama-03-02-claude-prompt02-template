@@ -19,7 +19,7 @@ import java.util.regex.PatternSyntaxException;
 @Component
 public class ConfigValidator {
 
-    private static final Logger log = LoggerFactory.getLogger(ConfigValidator.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigValidator.class);
 
     /**
      * 验证配置值

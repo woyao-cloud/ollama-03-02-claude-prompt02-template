@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ConfigPreloader {
 
-    private static final Logger log = LoggerFactory.getLogger(ConfigPreloader.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConfigPreloader.class);
 
     private final ConfigService configService;
 

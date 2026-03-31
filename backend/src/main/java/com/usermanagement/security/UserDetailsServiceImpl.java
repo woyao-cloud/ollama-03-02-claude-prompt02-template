@@ -55,7 +55,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         List<UserRole> userRoles = userRoleRepository.findByUserId(user.getId());
 
         Set<GrantedAuthority> authorities = userRoles.stream()
-            .map(UserRole::getRoleId)
+            .map(ur -> ur.getId().getRoleId())
             .map(roleRepository::findById)
             .filter(java.util.Optional::isPresent)
             .map(java.util.Optional::get)

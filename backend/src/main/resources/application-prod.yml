@@ -80,7 +80,7 @@ logging:
       max-file-size: 100MB
       max-history: 30
 
-# JWT 配置 (生产 - 从环境变量读取)
+# JWT 配置 (生产 - 必须从环境变量读取)
 app:
   jwt:
     secret: ${JWT_SECRET}

@@ -7,7 +7,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * 用户角色关联实体
@@ -26,18 +25,26 @@ import java.util.UUID;
 public class UserRole {
 
     /**
-     * 用户 ID - 复合主键
+     * 复合主键
      */
-    @Id
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @EmbeddedId
+    private UserRoleId id;
 
     /**
-     * 角色 ID - 复合主键
+     * 用户 ID (映射到 id.userId)
      */
-    @Id
-    @Column(name = "role_id", nullable = false)
-    private UUID roleId;
+    @MapsId("userId")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    /**
+     * 角色 ID (映射到 id.roleId)
+     */
+    @MapsId("roleId")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
 
     /**
      * 创建时间
@@ -51,20 +58,18 @@ public class UserRole {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         UserRole userRole = (UserRole) o;
-        return Objects.equals(userId, userRole.userId) &&
-                Objects.equals(roleId, userRole.roleId);
+        return Objects.equals(id, userRole.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(userId, roleId);
+        return Objects.hash(id);
     }
 
     @Override
     public String toString() {
         return "UserRole{" +
-                "userId='" + userId + '\'' +
-                ", roleId='" + roleId + '\'' +
+                "id=" + id +
                 ", createdAt=" + createdAt +
                 '}';
     }

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class CacheEvictionListener {
 
-    private static final Logger log = LoggerFactory.getLogger(CacheEvictionListener.class);
+    private static final Logger logger = LoggerFactory.getLogger(CacheEvictionListener.class);
 
     private final DepartmentCache departmentCache;
 
